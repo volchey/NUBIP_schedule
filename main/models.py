@@ -1,7 +1,9 @@
+import uuid
 from django.db import models
 
-import datetime
-YEAR_CHOICES = [(r,r) for r in range(2015, datetime.date.today().year+1)]
+from datetime import datetime, date, timezone, timedelta
+
+YEAR_CHOICES = [(r,r) for r in range(2015, date.today().year+1)]
 COURSES = [(r,r) for r in range(1, 5)]
 
 class DayOfWeek(models.IntegerChoices):
@@ -36,7 +38,7 @@ class Faculty(models.Model):
 
 class Group(models.Model):
     name = models.CharField(max_length=64, primary_key=True)
-    year = models.IntegerField(choices=YEAR_CHOICES, default=datetime.datetime.now().year)
+    year = models.IntegerField(choices=YEAR_CHOICES, default=datetime.now().year)
     faculty = models.ForeignKey(Faculty, on_delete=models.CASCADE, null=True, blank=False)
 
     class Type(models.IntegerChoices):
@@ -69,7 +71,7 @@ class Person(models.Model):
         db_table = 'Persons'
 
 class Lesson(models.Model):
-    id = models.AutoField(primary_key=True)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     title = models.CharField(max_length=255)
     starttime = models.TimeField()
     endtime = models.TimeField()
@@ -82,8 +84,8 @@ class Lesson(models.Model):
     enddate = models.DateField()
     groups = models.ManyToManyField(Group)
     teacher = models.ForeignKey(Person, on_delete=models.CASCADE, db_column="teacher_email",
-                                null=True, blank=False, default=None)
-    meetingurl = models.URLField()
+                                null=True, blank=True, default=None)
+    meetingurl = models.URLField(blank=True)
     location = models.CharField(max_length=255)
 
     class Type(models.IntegerChoices):
@@ -92,7 +94,19 @@ class Lesson(models.Model):
         PRACTICE = 2
 
     type = models.IntegerField(choices=Type.choices, default=Type.UNKNOWN)
-    courseurl = models.URLField()
+    courseurl = models.URLField(blank=True)
+
+    @property
+    def start_date_time(self):
+        return datetime.combine(self.startdate, self.starttime).replace(
+            tzinfo=timezone(timedelta(hours=2))
+        )
+
+    @property
+    def end_date_time(self):
+        return datetime.combine(self.startdate, self.endtime).replace(
+            tzinfo=timezone(timedelta(hours=2))
+        )
 
     class Meta:
         db_table = 'Lessons'

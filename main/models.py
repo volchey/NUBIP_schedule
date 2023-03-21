@@ -65,7 +65,7 @@ class Person(models.Model):
         STUDENT = 2
 
     role = models.IntegerField(choices=Role.choices)
-    group = models.ForeignKey(Group, on_delete=models.CASCADE, null=True, blank=False)
+    group = models.ForeignKey(Group, on_delete=models.CASCADE, null=True, blank=True)
 
     class Meta:
         db_table = 'Persons'

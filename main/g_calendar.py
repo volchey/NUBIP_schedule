@@ -4,7 +4,12 @@ from typing import Dict
 from pprint import pprint
 import uuid
 
+from google.oauth2.credentials import Credentials
+from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
+from google.auth.exceptions import RefreshError
+
+from allauth.socialaccount.models import SocialToken
 
 from main import models
 
@@ -138,51 +143,81 @@ class Event:
         return not self == other
 
 
-def update(service, group: str):
-    now = datetime.utcnow().isoformat() + 'Z'
-    two_weeks_after = (datetime.utcnow() + timedelta(days=14)).isoformat() + 'Z'
+class PersonBase:
 
-    events_result = service.events().list(calendarId='primary', timeMin=now,
-                                            timeMax=two_weeks_after,
-                                            singleEvents=False).execute()
-    api_events = events_result.get('items', [])
+    def __init__(self, user):
+        self.user = user
 
-    if not api_events:
-        print('No upcoming events found.')
-        return
+    def update_calendar(self, **lesson_filter):
+        try:
+            social_token = SocialToken.objects.get(account__user=self.user)
+        except SocialToken.DoesNotExist:
+            return f'Token was not found for Email {self.user.email}'
 
-    events: Dict[int, Event] = dict()
-    for api_event in api_events:
-        source = api_event.get('source')
-        if not source or source.get('title') != SOURCE_NAME:
-            continue
-        event_obj = Event(api_event)
-        events[event_obj.uuid] = event_obj
+        creds = Credentials(token=social_token.token,
+                            refresh_token=social_token.token_secret,
+                            client_id=social_token.app.client_id,
+                            client_secret=social_token.app.secret)
+        self.service = build('calendar', 'v3', credentials=creds)
 
-    # print(api_event)
-    checked, updated, created, deleted = list(), list(), list(), list()
+        now = datetime.utcnow().isoformat() + 'Z'
+        two_weeks_after = (datetime.utcnow() + timedelta(days=14)).isoformat() + 'Z'
 
-    lessons = models.Lesson.objects.filter(groups__name=group)
-    for lesson in lessons:
-        lesson_event = Event(None, lesson)
-        if lesson.id in events:
-            if events[lesson.id] != lesson_event: # lesson info changed
-                lesson_event.id = events[lesson.id].id # events created from model doesn't have id
-                lesson_event.api_update(service)
-                updated.append(lesson.id)
+        try:
+            events_result = self.service.events().list(calendarId='primary', timeMin=now,
+                                                    timeMax=two_weeks_after,
+                                                    singleEvents=False).execute()
+        except RefreshError:
+            return 'Refresh Error try to login again'
+
+        api_events = events_result.get('items', [])
+
+        events: Dict[int, Event] = dict()
+        for api_event in api_events:
+            source = api_event.get('source')
+            if not source or source.get('title') != SOURCE_NAME:
+                continue
+            event_obj = Event(api_event)
+            events[event_obj.uuid] = event_obj
+
+        # print(api_event)
+        checked, updated, created, deleted = list(), list(), list(), list()
+
+        lessons = models.Lesson.objects.filter(**lesson_filter)
+        for lesson in lessons:
+            lesson_event = Event(None, lesson)
+            if lesson.id in events:
+                if events[lesson.id] != lesson_event: # lesson info changed
+                    lesson_event.id = events[lesson.id].id # events created from model doesn't have id
+                    lesson_event.api_update(self.service)
+                    updated.append(lesson.id)
+                else:
+                    checked.append(lesson.id)
             else:
-                checked.append(lesson.id)
-        else:
-            events[lesson.id] = lesson_event
-            lesson_event.api_create(service)
-            created.append(lesson.id)
-        # return
+                events[lesson.id] = lesson_event
+                lesson_event.api_create(self.service)
+                created.append(lesson.id)
+            # return
 
-    for id, event in events.items():
-        if id in checked or id in updated or id in created:
-            continue
+        for id, event in events.items():
+            if id in checked or id in updated or id in created:
+                continue
 
-        event.api_delete(service)
-        deleted.append(id)
+            event.api_delete(self.service)
+            deleted.append(id)
 
-    print(f'checked: {len(checked)}, updated: {len(updated)}, created: {len(created)}, deleted: {len(deleted)}')
+        result = f'checked: {len(checked)}, updated: {len(updated)}, created: {len(created)}, deleted: {len(deleted)}'
+        # print(result)
+        return result
+
+class Teacher(PersonBase):
+
+    def update_calendar(self, person):
+        return super().update_calendar(teacher__email=person.email)
+
+
+class Student(PersonBase):
+
+    def update_calendar(self, person):
+        return super().update_calendar(groups__name=person.group.name)
+

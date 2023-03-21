@@ -1,15 +1,13 @@
 from typing import Any, Dict
 from django.shortcuts import render
 from django.views.generic import TemplateView
-from google.oauth2.credentials import Credentials
-from googleapiclient.discovery import build
 
-from allauth.socialaccount.models import SocialToken
 from main.models import Person
 
-from main import g_calendar
+from main.g_calendar import Student, Teacher
 # If modifying these scopes, delete the file token.json.
 SCOPES = ['https://www.googleapis.com/auth/calendar.events.owned']
+
 
 class FillCalendarView(TemplateView):
 
@@ -26,21 +24,12 @@ class FillCalendarView(TemplateView):
             return context
 
         if person.role == Person.Role.STUDENT:
-            creds = Credentials.from_authorized_user_file('secret/token.json', SCOPES)
+            person_obj = Student(self.request.user)
+        else:
+            person_obj = Teacher(self.request.user)
 
-            try:
-                social_token = SocialToken.objects.get(account__user=self.request.user)
-            except SocialToken.DoesNotExist:
-                context['message'] = f'Token was not found for Email {self.request.user.email}'
-                return context
+        context['message'] = person_obj.update_calendar(person)
 
-            creds = Credentials(token=social_token.token,
-                                refresh_token=social_token.token_secret,
-                                client_id=social_token.app.client_id,
-                                client_secret=social_token.app.secret)
-            service = build('calendar', 'v3', credentials=creds)
-
-            g_calendar.update(service, person.group.name)
         # create google calendar events for user
         return context
 

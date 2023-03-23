@@ -3,6 +3,8 @@ from django.db import models
 
 from datetime import datetime, date, timezone, timedelta
 
+from main.schedule_file_parser import ScheduleFileParser
+
 YEAR_CHOICES = [(r,r) for r in range(2015, date.today().year+1)]
 COURSES = [(r,r) for r in range(1, 5)]
 
@@ -30,11 +32,39 @@ class Semester(models.Model):
 
     weektype = models.IntegerField(choices=WeekType.choices)
 
+    class Meta:
+        db_table = 'Semesters'
+
+    def __str__(self) -> str:
+        return f'{self.startdate} - {self.enddate}'
+
 class Faculty(models.Model):
     name = models.CharField(max_length=255, primary_key=True)
 
     class Meta:
         db_table = 'Faculties'
+
+    def __str__(self) -> str:
+        return self.name
+
+class ScheduleFile(models.Model):
+    id = models.AutoField(primary_key=True)
+    semester = models.ForeignKey(Semester, on_delete=models.CASCADE)
+    faculty = models.ForeignKey(Faculty, on_delete=models.CASCADE)
+    file = models.FileField(upload_to='uploads/')
+
+    def save(self, *args, **kwargs) -> None:
+        result = super().save(*args, **kwargs)
+        parser = ScheduleFileParser(self.file.path, self.faculty, self.semester)
+        parser.serialize_to_db()
+        return result
+
+    class Meta:
+        db_table = 'ScheduleFiles'
+        unique_together = (("semester", "faculty"),)
+
+    def __str__(self) -> str:
+        return self.file.name
 
 class Group(models.Model):
     name = models.CharField(max_length=64, primary_key=True)
@@ -69,6 +99,9 @@ class Person(models.Model):
 
     class Meta:
         db_table = 'Persons'
+
+    def __str__(self) -> str:
+        return f'{self.lastname} {self.firstname} ({self.email})'
 
 class Lesson(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

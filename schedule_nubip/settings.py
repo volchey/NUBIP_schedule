@@ -40,11 +40,14 @@ INSTALLED_APPS = [
     'django.contrib.sites',
 
     'main',
+    'moodle',
 
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
     'allauth.socialaccount.providers.google',
+
+    'debug_toolbar',
 ]
 
 MIDDLEWARE = [
@@ -55,6 +58,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+
+    'debug_toolbar.middleware.DebugToolbarMiddleware',
 ]
 
 ROOT_URLCONF = 'schedule_nubip.urls'
@@ -86,9 +91,17 @@ DATABASES = {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'schedule',
         'USER': 'root',
-        'PASSWORD': '',
-        'HOST':'localhost',
-        'PORT':'3306',
+        'PASSWORD': 'root',
+        'HOST':'127.0.0.1',
+        'PORT':'8889',
+    },
+    'moodle': {
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'moodle401',
+        'USER': 'moodle',
+        'PASSWORD': 'moodle',
+        'HOST':'127.0.0.1',
+        'PORT':'8889',
     }
 }
 
@@ -158,3 +171,7 @@ SITE_ID = 3
 
 LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/'
+
+DEBUG_TOOLBAR_CONFIG = {
+    'SHOW_TOOLBAR_CALLBACK': lambda request: request.GET.get('show_debug_toolbar') or DEBUG
+}

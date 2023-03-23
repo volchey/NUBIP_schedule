@@ -41,12 +41,12 @@ days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sun
 
 class Group:
 
-    def __init__(self, course_name, spec_name, name):
+    def __init__(self, course_name, spec_name, name, faculty=None):
         self.course_name = course_name
         self.spec_name = spec_name
         self.name = name.replace('\n', '')
         self.year = self.get_course_year(course_name)
-        self.faculty = models.Faculty.objects.all().first() # TODO: parse from file
+        self.faculty = faculty or models.Faculty.objects.all().first() # TODO: parse from file
         self.db_object = models.Group.objects.filter(name=self.__str__()).first()
         if not self.db_object:
             self.db_object = models.Group(name=self.__str__(), year=self.year,
@@ -74,13 +74,13 @@ class Group:
 
 class Lesson:
 
-    def __init__(self, week_day: str, number: str, info: str, freq):
+    def __init__(self, week_day: str, number: str, info: str, freq, semester=None):
         self.week_day = week_day
         self.number = int(number)
         self.info = info
         self.name, self.location = self.parse_info(info)
         self.freq = freq
-        self.semester = models.Semester.objects.all().first() # TODO: parse from file
+        self.semester = semester or models.Semester.objects.all().first()
         self.groups = []
 
     @staticmethod
@@ -150,9 +150,11 @@ class Lesson:
 
 class ScheduleFileParser:
 
-    def __init__(self, path) -> None:
+    def __init__(self, path, faculty=None, semester=None) -> None:
         wb = load_workbook(path)
         self.ws = wb.active
+        self.faculty = faculty
+        self.semester = semester
         # cell = self.ws['B14']
         # print(self.get_cell_value(cell))
         # print(self.get_merged_range('B14'))
@@ -224,7 +226,7 @@ class ScheduleFileParser:
         if not group_name:
             return None
 
-        return Group(course_name, speciality_name, group_name)
+        return Group(course_name, speciality_name, group_name, self.faculty)
 
 
     def parse_lessons(self) -> List[Lesson]:
@@ -272,7 +274,7 @@ class ScheduleFileParser:
                     print(f'Error!! lesson number not found for lesson in cell {cell.coordinate}')
                     continue
 
-                lesson = Lesson(week_day, lesson_number, lesson_info, freq)
+                lesson = Lesson(week_day, lesson_number, lesson_info, freq, self.semester)
                 try:
                     existed_lesson = next(x for x in lessons if x == lesson)
                     existed_lesson.groups.append(group)

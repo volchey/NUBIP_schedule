@@ -1,6 +1,6 @@
 from __future__ import print_function
 from datetime import datetime, timedelta
-from typing import Dict
+from typing import Dict, List
 from pprint import pprint
 import uuid
 
@@ -12,6 +12,8 @@ from google.auth.exceptions import RefreshError
 from allauth.socialaccount.models import SocialToken
 
 from main import models
+from moodle.models import MdlCourse, MdlUser, MdlUserEnrolments, MdlEnrol, MdlCohortMembers
+from schedule_nubip.settings import DEBUG
 
 SOURCE_NAME = 'scheduleNUBIP'
 
@@ -145,19 +147,26 @@ class Event:
 
 class PersonBase:
 
-    def __init__(self, user):
+    def __init__(self, user, mdl_user):
         self.user = user
+        self.mdl_user = mdl_user
 
-    def update_calendar(self, **lesson_filter):
-        try:
-            social_token = SocialToken.objects.get(account__user=self.user)
-        except SocialToken.DoesNotExist:
-            return f'Token was not found for Email {self.user.email}'
+    def update_calendar(self):
+        if self.user:
+            try:
+                social_token = SocialToken.objects.get(account__user=self.user)
+            except SocialToken.DoesNotExist:
+                return f'Token was not found for Email {self.user.email}'
 
-        creds = Credentials(token=social_token.token,
-                            refresh_token=social_token.token_secret,
-                            client_id=social_token.app.client_id,
-                            client_secret=social_token.app.secret)
+            creds = Credentials(token=social_token.token,
+                                refresh_token=social_token.token_secret,
+                                client_id=social_token.app.client_id,
+                                client_secret=social_token.app.secret)
+        # elif DEBUG:
+        #     creds = Credentials.from_authorized_user_file('secret/token.json', ['https://www.googleapis.com/auth/calendar.events.owned'])
+        else:
+            return 'User not authorisized'
+
         self.service = build('calendar', 'v3', credentials=creds)
 
         now = datetime.utcnow().isoformat() + 'Z'
@@ -183,7 +192,8 @@ class PersonBase:
         # print(api_event)
         checked, updated, created, deleted = list(), list(), list(), list()
 
-        lessons = models.Lesson.objects.filter(**lesson_filter)
+        lessons = self.search_lessons()
+        # lessons = models.Lesson.objects.filter(**lesson_filter)
         for lesson in lessons:
             lesson_event = Event(None, lesson)
             if lesson.id in events:
@@ -210,14 +220,24 @@ class PersonBase:
         # print(result)
         return result
 
+
 class Teacher(PersonBase):
 
-    def update_calendar(self, person):
-        return super().update_calendar(teacher__email=person.email)
+    def search_lessons(self):
+        courses = list(MdlUserEnrolments.objects.filter(userid=self.mdl_user)
+                            .values_list('enrolid__courseid__shortname', flat=True))
 
+        if not courses:
+            print(f"No Enrols found for user {self.mdl_user.id}")
+            return None
+
+        return models.Lesson.objects.filter(title__in=courses)
 
 class Student(PersonBase):
 
-    def update_calendar(self, person):
-        return super().update_calendar(groups__name=person.group.name)
+    def search_lessons(self):
+        cohorts_names = list(MdlCohortMembers.objects.filter(userid=self.mdl_user)
+                             .values_list('cohortid__name', flat=True))
+
+        return models.Lesson.objects.filter(groups__name__in=cohorts_names)
 

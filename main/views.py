@@ -16,6 +16,9 @@ class FillCalendarView(TemplateView):
 
     def get_context_data(self, **kwargs: Any) -> Dict[str, Any]:
         context = super().get_context_data(**kwargs)
+        if not self.request.GET.get('update'):
+            return context
+
         if not self.request.user.is_authenticated:
             if DEBUG:
                 email = self.request.GET.get('email')

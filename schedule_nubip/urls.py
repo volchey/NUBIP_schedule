@@ -25,6 +25,6 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('accounts/', include('allauth.urls')),
     path('__debug__/', include('debug_toolbar.urls')),
-    path('logout', LogoutView.as_view()),
+    path('logout', LogoutView.as_view(), name='logout'),
     path('', FillCalendarView.as_view(template_name="index.html")),
 ]

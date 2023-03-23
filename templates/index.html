@@ -1,10 +1,14 @@
 {% load socialaccount %}
 <html>
 <body>
-<h1>My Google OAuth Project </h1>
+<h1>NUBIP Schedule</h1>
 {% if user.is_authenticated %}
-  <p>Welcome, You are logged in as {{ user.username }}</p>
+  <p>Welcome, You are logged in as {{ user.email }}</p>
   <p>{{ message }}</p>
+  <form>
+      <button type="submit" name='update' value='1'>Update</button>
+  </form>
+  <a href="{% url 'logout' %}">Logout</a>
 {% else %}
   <a href="{% provider_login_url 'google' %}">Login With Google</a>
 {% endif %}

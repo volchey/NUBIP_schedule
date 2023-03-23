@@ -91,7 +91,6 @@ class Lesson:
             name, location = m.group(1), m.group(3)
             name = name.replace('\n', ' ')
             return name, location
-        # print(f'Error!! Cannot parse lesson info: "{self.info}"')
         return info, ""
 
     def serialize_to_db(self):
@@ -155,12 +154,8 @@ class ScheduleFileParser:
         self.ws = wb.active
         self.faculty = faculty
         self.semester = semester
-        # cell = self.ws['B14']
-        # print(self.get_cell_value(cell))
-        # print(self.get_merged_range('B14'))
 
         self.define_week_days_ranges()
-        # print(self.week_day_ranges)
         self.lessons = self.parse_lessons()
 
     def define_week_days_ranges(self):
@@ -175,39 +170,6 @@ class ScheduleFileParser:
                 for row in range(merged_range.min_row, merged_range.max_row + 1):
                     self.week_day_ranges[row] = week_day
                 week_day += 1
-
-    def parse_courses(self):
-        # iterate through courses
-        for cols in self.ws.iter_rows(min_row=COURSES_ROW, min_col=TITLE_COLUMNS,
-                                      max_row=COURSES_ROW, max_col=MAX_COL):
-            for cell in cols:
-                if not cell.value:
-                    continue
-                min_col, max_col = self.get_cell_column_range(cell)
-                self.parse_specialities(min_col, max_col, cell.value)
-
-
-    def parse_specialities(self, min_col, max_col, course_name):
-        # iterate through specialities of course
-        for cols in self.ws.iter_rows(min_row=SPECIALTY_ROW, min_col=min_col,
-                                      max_row=SPECIALTY_ROW, max_col=max_col):
-            for cell in cols:
-                if not cell.value:
-                    continue
-                min_col, max_col = self.get_cell_column_range(cell)
-                self.parse_groups(min_col, max_col, course_name, cell.value)
-
-    def parse_groups(self, min_col, max_col, course_name, speciality_name):
-        # iterate through groups of speciality
-        for cols in self.ws.iter_rows(min_row=GROUP_ROW, min_col=min_col,
-                                      max_row=GROUP_ROW, max_col=max_col):
-            for cell in cols:
-                group_name = self.get_cell_value(cell)
-                if not group_name:
-                    continue
-
-                group = Group(cell.column, course_name, speciality_name, group_name)
-                self.parse_group(group)
 
     def parse_group(self, column: int) -> Group | None:
         # print(column)

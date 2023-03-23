@@ -150,5 +150,4 @@ class Lesson(models.Model):
             name = f'{self.title} (чисельник)'
         if self.weekfrequency == WeekFrequency.DENOMINATOR:
             name = f'{self.title} (знаменник)'
-        # return f'{DayOfWeek[self.dayofweek]} {name}'
         return f'{self.get_dayofweek_display()} {self.starttime}: {name}'

@@ -131,8 +131,6 @@ class Event:
         if not isinstance(other, Event):
             return NotImplemented
 
-        # print(f'comparing {(self.uuid, self.summary, self.location, self.start_date_time,self.end_date_time, self.interval, self.until)} '
-        #       f' vs {(other.uuid, other.summary, other.location, other.start_date_time, other.end_date_time, other.interval, other.until)}')
         return (self.uuid == other.uuid and
                 self.summary == other.summary and
                 self.location == other.location and
@@ -162,8 +160,6 @@ class PersonBase:
                                 refresh_token=social_token.token_secret,
                                 client_id=social_token.app.client_id,
                                 client_secret=social_token.app.secret)
-        # elif DEBUG:
-        #     creds = Credentials.from_authorized_user_file('secret/token.json', ['https://www.googleapis.com/auth/calendar.events.owned'])
         else:
             return 'User not authorisized'
 
@@ -193,7 +189,6 @@ class PersonBase:
         checked, updated, created, deleted = list(), list(), list(), list()
 
         lessons = self.search_lessons()
-        # lessons = models.Lesson.objects.filter(**lesson_filter)
         for lesson in lessons:
             lesson_event = Event(None, lesson)
             if lesson.id in events:

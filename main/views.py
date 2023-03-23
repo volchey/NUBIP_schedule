@@ -45,8 +45,8 @@ class FillCalendarView(TemplateView):
         else:
             person_obj = Student(self.request.user, user)
 
+        # create google calendar events for user
         context['message'] = person_obj.update_calendar()
 
-        # create google calendar events for user
         return context
 

@@ -1,4 +1,5 @@
 from __future__ import print_function
+from collections import defaultdict
 from datetime import datetime, timedelta
 from typing import Dict, List
 from pprint import pprint
@@ -26,6 +27,7 @@ class Event:
             self.id = init_dict.get('id')
             self.uuid = self.parseUUID(init_dict.get('iCalUID'))
             self.summary = init_dict.get('summary', '')
+            self.description = init_dict.get('description', '')
             self.location = init_dict.get('location', '')
             self.start_date_time, self.end_date_time = (
                 self.parse_dates(init_dict['start'].get('dateTime'),
@@ -40,6 +42,7 @@ class Event:
             self.end_date_time = lesson.end_date_time
             self.interval = 1 if lesson.weekfrequency == models.WeekFrequency.EACH_WEEK else 2
             self.until = lesson.enddate
+            self.description = ''
 
     @staticmethod
     def parse_dates(start: str, end: str):
@@ -82,7 +85,6 @@ class Event:
 
     def api_create(self, service):
         print(f'Creating event {self.uuid}')
-        # pprint(self._event_dict)
         try:
             service.events().import_(calendarId='primary',
                                     body=self._event_dict).execute()
@@ -105,6 +107,7 @@ class Event:
             'iCalUID': str(self.uuid),
             'summary': self.summary,
             'location': self.location,
+            'description': self.description,
             'start': {
                 'dateTime': self.start_date_time.isoformat(),
                 'timeZone': 'Europe/Kyiv'
@@ -125,7 +128,7 @@ class Event:
 
     def __hash__(self) -> int:
         return hash((self.uuid, self.summary, self.location, self.start_date_time,
-                     self.end_date_time, self.interval, self.until))
+                     self.end_date_time, self.interval, self.description, self.until))
 
     def __eq__(self, other: 'Event') -> bool:
         if not isinstance(other, Event):
@@ -137,6 +140,7 @@ class Event:
                 self.start_date_time == other.start_date_time and
                 self.end_date_time == other.end_date_time and
                 self.interval == other.interval and
+                self.description == other.description and
                 self.until == other.until)
 
     def __ne__(self, other: 'Event'):
@@ -185,12 +189,12 @@ class PersonBase:
             event_obj = Event(api_event)
             events[event_obj.uuid] = event_obj
 
-        # print(api_event)
         checked, updated, created, deleted = list(), list(), list(), list()
 
         lessons = self.search_lessons()
         for lesson in lessons:
             lesson_event = Event(None, lesson)
+            lesson_event.description = self.build_description(lesson.title)
             if lesson.id in events:
                 if events[lesson.id] != lesson_event: # lesson info changed
                     lesson_event.id = events[lesson.id].id # events created from model doesn't have id
@@ -202,7 +206,6 @@ class PersonBase:
                 events[lesson.id] = lesson_event
                 lesson_event.api_create(self.service)
                 created.append(lesson.id)
-            # return
 
         for id, event in events.items():
             if id in checked or id in updated or id in created:
@@ -212,21 +215,50 @@ class PersonBase:
             deleted.append(id)
 
         result = f'checked: {len(checked)}, updated: {len(updated)}, created: {len(created)}, deleted: {len(deleted)}'
-        # print(result)
         return result
 
 
 class Teacher(PersonBase):
 
     def search_lessons(self):
-        courses = list(MdlUserEnrolments.objects.filter(userid=self.mdl_user)
-                            .values_list('enrolid__courseid__shortname', flat=True))
+        courses_names = list()
+        self.courses_ids = list()
 
-        if not courses:
+        for course_id, course_name in (MdlUserEnrolments.objects
+                                       .filter(userid=self.mdl_user)
+                                       .values_list('enrolid__courseid_id',
+                                                    'enrolid__courseid__shortname')):
+            courses_names.append(course_name)
+            self.courses_ids.append(course_id)
+
+        if not course_name:
             print(f"No Enrols found for user {self.mdl_user.id}")
             return None
 
-        return models.Lesson.objects.filter(title__in=courses)
+        return models.Lesson.objects.filter(title__in=courses_names)
+
+    # need to be called after search_lessons
+    def build_description(self, title):
+        if not hasattr(self, 'course_cohorts') or not self.course_cohorts:
+            course_users = {
+                name: userid for name, userid in (
+                    MdlUserEnrolments.objects.filter(enrolid__courseid__in=self.courses_ids)
+                    .values_list('enrolid__courseid__shortname', 'userid_id')
+                )
+            }
+
+            user_cohorts = {
+                user: cohort for user, cohort in (
+                    MdlCohortMembers.objects.filter(userid__in=course_users.values())
+                    .values_list('userid_id', 'cohortid__name')
+                )
+            }
+
+            self.course_cohorts = defaultdict(list)
+            for course, userid in course_users.items():
+                self.course_cohorts[course].append(user_cohorts.get(userid))
+
+        return f'groups: {self.course_cohorts[title]}'
 
 class Student(PersonBase):
 
@@ -236,3 +268,5 @@ class Student(PersonBase):
 
         return models.Lesson.objects.filter(groups__name__in=cohorts_names)
 
+    def build_description(self, title):
+        pass

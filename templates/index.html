@@ -3,14 +3,15 @@
 <body>
 <h1>NUBIP Schedule</h1>
 {% if user.is_authenticated %}
-  <p>Welcome, You are logged in as {{ user.email }}</p>
-  <p>{{ message }}</p>
-  <form>
-      <button type="submit" name='update' value='1'>Update</button>
-  </form>
-  <a href="{% url 'logout' %}">Logout</a>
+	<p>Welcome, You are logged in as {{ user.email }}</p>
+	<p>{{ message }}</p>
+	<form>
+		<input type="text" name="email" value="{{request.GET.test_email}}">Test Email</input></br>
+		<button type="submit" name='update' value='1'>Update</button>
+	</form>
+	<a href="{% url 'logout' %}">Logout</a>
 {% else %}
-  <a href="{% provider_login_url 'google' %}">Login With Google</a>
+	<a href="{% provider_login_url 'google' %}">Login With Google</a>
 {% endif %}
 </body>
 </html>

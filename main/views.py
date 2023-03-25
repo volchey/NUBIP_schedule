@@ -19,21 +19,13 @@ class FillCalendarView(TemplateView):
         if not self.request.GET.get('update'):
             return context
 
-        if not self.request.user.is_authenticated:
-            if DEBUG:
-                email = self.request.GET.get('email')
-                if not email:
-                    return context
-            else:
-                return context
-        else:
-            email = self.request.GET.get('email', self.request.user.email)
+        email = self.request.GET.get('test_email') or self.request.user.email
 
         # search user email in db
         try:
             user = MdlUser.objects.get(email=email)
         except MdlUser.DoesNotExist:
-            context['message'] = f'Email {self.request.user.email} was not found in database, please use another email or contact administrator'
+            context['message'] = f'Email {email} was not found in database, please use another email or contact administrator'
             return context
 
         role_assignments = (

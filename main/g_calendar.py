@@ -13,7 +13,7 @@ from google.auth.exceptions import RefreshError
 from allauth.socialaccount.models import SocialToken
 
 from main import models
-from moodle.models import MdlCourse, MdlUser, MdlUserEnrolments, MdlEnrol, MdlCohortMembers
+from moodle.models import (MdlUserEnrolments, MdlCohortMembers, MdlRoleAssignments)
 from schedule_nubip.settings import DEBUG
 
 SOURCE_NAME = 'scheduleNUBIP'
@@ -79,7 +79,10 @@ class Event:
 
             if 'UNTIL' in part:
                 until = part.split('=')[1]
-                until = datetime.strptime(until, '%Y%m%d').date()
+                try:
+                    until = datetime.strptime(until, '%Y%m%d').date()
+                except ValueError:
+                    until = datetime.strptime(until, '%Y%m%dT%H%M%S%z').date()
 
         return interval, until
 
@@ -239,7 +242,7 @@ class Teacher(PersonBase):
 
     # need to be called after search_lessons
     def build_description(self, title):
-        if not hasattr(self, 'course_cohorts') or not self.course_cohorts:
+        if not hasattr(self, 'course_cohorts'):
             course_users = {
                 name: userid for name, userid in (
                     MdlUserEnrolments.objects.filter(enrolid__courseid__in=self.courses_ids)
@@ -258,7 +261,7 @@ class Teacher(PersonBase):
             for course, userid in course_users.items():
                 self.course_cohorts[course].append(user_cohorts.get(userid))
 
-        return f'groups: {self.course_cohorts[title]}'
+        return f'groups: {self.course_cohorts.get(title)}'
 
 class Student(PersonBase):
 
@@ -269,4 +272,29 @@ class Student(PersonBase):
         return models.Lesson.objects.filter(groups__name__in=cohorts_names)
 
     def build_description(self, title):
-        pass
+        if not hasattr(self, 'course_teachers') or not hasattr(self, 'user_names'):
+            course_ids = list(MdlUserEnrolments.objects.filter(userid=self.mdl_user)
+                          .values_list('enrolid__courseid_id', flat=True))
+
+            course_users = defaultdict(set)
+            self.user_names = dict()
+            for course_name, user_id, firstname, lastname in (
+                MdlUserEnrolments.objects.filter(enrolid__courseid__in=course_ids)
+                .values_list('enrolid__courseid__shortname', 'userid_id',
+                             'userid__firstname', 'userid__lastname')
+                ):
+                course_users[course_name].add(user_id)
+                self.user_names[user_id] = f'{firstname} {lastname}'
+
+            teacher_ids = set(MdlRoleAssignments.objects
+                               .filter(userid__in=set().union(*course_users.values()),
+                                       roleid__shortname='editingteacher')
+                               .values_list('userid_id', flat=True)
+                               .distinct())
+
+            self.course_teachers = dict()
+            for course_name, user_ids in course_users.items():
+                self.course_teachers[course_name] = user_ids & teacher_ids
+
+
+        return f'teachers: {[self.user_names[name] for name in self.course_teachers.get(title, [])]}'

@@ -183,7 +183,7 @@ class MdlEnrol(models.Model):
     password = models.CharField(max_length=50, blank=True, null=True)
     cost = models.CharField(max_length=20, blank=True, null=True)
     currency = models.CharField(max_length=3, blank=True, null=True)
-    roleid = models.BigIntegerField(blank=True, null=True)
+    roleid = models.ForeignKey('MdlRole', on_delete=models.CASCADE, db_column='roleid')
     customint1 = models.BigIntegerField(blank=True, null=True)
     customint2 = models.BigIntegerField(blank=True, null=True)
     customint3 = models.BigIntegerField(blank=True, null=True)

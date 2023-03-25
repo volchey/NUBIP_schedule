@@ -70,7 +70,7 @@ class Group:
         return self.__str__()
 
     def __str__(self) -> str:
-        return f'{self.spec_name}-{self.year - 2000}-{self.name}'
+        return f'{self.spec_name}-{self.year - 2000}00{self.name}б'
 
 class Lesson:
 

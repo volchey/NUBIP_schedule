@@ -1,1 +1,1 @@
-mdl_cohort mdl_cohort_members mdl_course mdl_user mdl_user_enrolments mdl_enrol
+mdl_cohort mdl_cohort_members mdl_course mdl_user mdl_user_enrolments mdl_enrol mdl_role mdl_role_assignments

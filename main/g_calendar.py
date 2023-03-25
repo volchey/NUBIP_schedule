@@ -197,7 +197,7 @@ class PersonBase:
         lessons = self.search_lessons()
         for lesson in lessons:
             lesson_event = Event(None, lesson)
-            lesson_event.description = self.build_description(lesson.title)
+            lesson_event.description = self.build_description(lesson)
             if lesson.id in events:
                 if events[lesson.id] != lesson_event: # lesson info changed
                     lesson_event.id = events[lesson.id].id # events created from model doesn't have id
@@ -238,30 +238,31 @@ class Teacher(PersonBase):
             print(f"No Enrols found for user {self.mdl_user.id}")
             return None
 
-        return models.Lesson.objects.filter(title__in=courses_names)
+        return models.Lesson.objects.prefetch_related('groups').filter(title__in=courses_names)
 
     # need to be called after search_lessons
-    def build_description(self, title):
-        if not hasattr(self, 'course_cohorts'):
-            course_users = {
-                name: userid for name, userid in (
-                    MdlUserEnrolments.objects.filter(enrolid__courseid__in=self.courses_ids)
-                    .values_list('enrolid__courseid__shortname', 'userid_id')
-                )
-            }
+    def build_description(self, lesson: models.Lesson) -> str:
+        # if not hasattr(self, 'course_cohorts'):
+        #     course_users = {
+        #         name: userid for name, userid in (
+        #             MdlUserEnrolments.objects.filter(enrolid__courseid__in=self.courses_ids)
+        #             .values_list('enrolid__courseid__shortname', 'userid_id')
+        #         )
+        #     }
 
-            user_cohorts = {
-                user: cohort for user, cohort in (
-                    MdlCohortMembers.objects.filter(userid__in=course_users.values())
-                    .values_list('userid_id', 'cohortid__name')
-                )
-            }
+        #     user_cohorts = {
+        #         user: cohort for user, cohort in (
+        #             MdlCohortMembers.objects.filter(userid__in=course_users.values())
+        #             .values_list('userid_id', 'cohortid__name')
+        #         )
+        #     }
 
-            self.course_cohorts = defaultdict(list)
-            for course, userid in course_users.items():
-                self.course_cohorts[course].append(user_cohorts.get(userid))
+        #     self.course_cohorts = defaultdict(list)
+        #     for course, userid in course_users.items():
+        #         self.course_cohorts[course].append(user_cohorts.get(userid))
 
-        return f'groups: {self.course_cohorts.get(title)}'
+        # return f'groups: {self.course_cohorts.get(title)}'
+        return f'groups: {[group.name for group in lesson.groups.all()]}'
 
 class Student(PersonBase):
 
@@ -271,7 +272,7 @@ class Student(PersonBase):
 
         return models.Lesson.objects.filter(groups__name__in=cohorts_names)
 
-    def build_description(self, title):
+    def build_description(self, lesson: models.Lesson) -> str:
         if not hasattr(self, 'course_teachers') or not hasattr(self, 'user_names'):
             course_ids = list(MdlUserEnrolments.objects.filter(userid=self.mdl_user)
                           .values_list('enrolid__courseid_id', flat=True))
@@ -297,4 +298,4 @@ class Student(PersonBase):
                 self.course_teachers[course_name] = user_ids & teacher_ids
 
 
-        return f'teachers: {[self.user_names[name] for name in self.course_teachers.get(title, [])]}'
+        return f'teachers: {[self.user_names[name] for name in self.course_teachers.get(lesson.title, [])]}'

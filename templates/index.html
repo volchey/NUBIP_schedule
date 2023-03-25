@@ -6,7 +6,7 @@
 	<p>Welcome, You are logged in as {{ user.email }}</p>
 	<p>{{ message }}</p>
 	<form>
-		<input type="text" name="email" value="{{request.GET.test_email}}">Test Email</input></br>
+		<input type="text" name="test_email" value="{{request.GET.test_email}}">Test Email</input></br>
 		<button type="submit" name='update' value='1'>Update</button>
 	</form>
 	<a href="{% url 'logout' %}">Logout</a>

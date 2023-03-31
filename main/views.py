@@ -20,7 +20,7 @@ SCOPES = ['https://www.googleapis.com/auth/calendar.events.owned']
 class MeetUrlForm(forms.Form):
     meeting_url = forms.CharField(max_length=256)
 
-class ButchMeetUrlSetView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
+class BatchMeetUrlSetView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
     template_name='admin/meet_url_form.html'
 
     def test_func(self):

@@ -8,7 +8,7 @@ from main.models import Faculty, Group, Person, Lesson, Semester, ScheduleFile
 @admin.action(description='Set Meeting Url', permissions=['change'])
 def set_meeting_url(modeladmin, request, queryset):
     ids = queryset.values_list('id', flat=True)
-    return redirect('/butch_meet_url_set/?ids=' + ','.join(str(id) for id in ids))
+    return redirect('/batch_meet_url_set/?ids=' + ','.join(str(id) for id in ids))
 
 
 @admin.action(description='Mark as Practice', permissions=['change'])

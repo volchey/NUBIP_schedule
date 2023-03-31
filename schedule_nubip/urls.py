@@ -19,11 +19,11 @@ from django.urls import path, include
 from django.views.generic import TemplateView
 from django.contrib.auth.views import LogoutView
 
-from main.views import FillCalendarView, ButchMeetUrlSetView
+from main.views import FillCalendarView, BatchMeetUrlSetView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('butch_meet_url_set/', ButchMeetUrlSetView.as_view(), name='butch_meet_url_set'),
+    path('batch_meet_url_set/', BatchMeetUrlSetView.as_view(), name='batch_meet_url_set'),
     path('accounts/', include('allauth.urls')),
     path('__debug__/', include('debug_toolbar.urls')),
     path('logout', LogoutView.as_view(), name='logout'),

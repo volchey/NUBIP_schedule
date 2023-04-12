@@ -220,6 +220,10 @@ class PersonBase:
         result = f'checked: {len(checked)}, updated: {len(updated)}, created: {len(created)}, deleted: {len(deleted)}'
         return result
 
+    def build_description(self, lesson: models.Lesson):
+        return f'<a href="{lesson.meetingurl}">Meeting Url</a>\n'\
+               f'type: {lesson.get_type_display()}'
+
 
 class Teacher(PersonBase):
 
@@ -262,7 +266,8 @@ class Teacher(PersonBase):
         #         self.course_cohorts[course].append(user_cohorts.get(userid))
 
         # return f'groups: {self.course_cohorts.get(title)}'
-        return f'groups: {[group.name for group in lesson.groups.all()]}'
+        description = super().build_description(lesson)
+        return f'{description}\ngroups: {[group.name for group in lesson.groups.all()]}'
 
 class Student(PersonBase):
 
@@ -297,5 +302,5 @@ class Student(PersonBase):
             for course_name, user_ids in course_users.items():
                 self.course_teachers[course_name] = user_ids & teacher_ids
 
-
-        return f'teachers: {[self.user_names[name] for name in self.course_teachers.get(lesson.title, [])]}'
+        description = super().build_description(lesson)
+        return f'{description}\nteachers: {[self.user_names[name] for name in self.course_teachers.get(lesson.title, [])]}'

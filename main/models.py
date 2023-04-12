@@ -6,7 +6,6 @@ from datetime import datetime, date, timezone, timedelta
 from main.schedule_file_parser import ScheduleFileParser
 
 YEAR_CHOICES = [(r,r) for r in range(2015, date.today().year+1)]
-COURSES = [(r,r) for r in range(1, 5)]
 
 class DayOfWeek(models.IntegerChoices):
     MONDAY = 0, 'Понеділок'
@@ -16,6 +15,11 @@ class DayOfWeek(models.IntegerChoices):
     FRIDAY = 4, 'Пʼятниця'
     SATURDAY = 5, 'Субота'
     SUNDAY = 6, 'Неділя'
+
+class Type(models.IntegerChoices):
+    UNKNOWN = 0, 'Невідомо'
+    LECTURE = 1, 'Лекція'
+    PRACTICE = 2, 'Практика'
 
 class WeekFrequency(models.IntegerChoices):
     EACH_WEEK = 1
@@ -120,11 +124,6 @@ class Lesson(models.Model):
                                 null=True, blank=True, default=None)
     meetingurl = models.URLField(blank=True)
     location = models.CharField(max_length=255)
-
-    class Type(models.IntegerChoices):
-        UNKNOWN = 0
-        LECTURE = 1
-        PRACTICE = 2
 
     type = models.IntegerField(choices=Type.choices, default=Type.UNKNOWN)
     courseurl = models.URLField(blank=True)

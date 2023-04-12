@@ -13,15 +13,17 @@ def set_meeting_url(modeladmin, request, queryset):
 
 @admin.action(description='Mark as Practice', permissions=['change'])
 def make_practice(modeladmin, request, queryset):
-    queryset.update(type=Lesson.Type.PRACTICE)
+    ids = list(queryset.values_list('id', flat=True))
+    Lesson.objects.filter(id__in=ids).update(type=Lesson.Type.PRACTICE)
 
 @admin.action(description='Mark as Lecture', permissions=['change'])
 def make_lecture(modeladmin, request, queryset):
-    queryset.update(type=Lesson.Type.LECTURE)
+    ids = list(queryset.values_list('id', flat=True))
+    Lesson.objects.filter(id__in=ids).update(type=Lesson.Type.LECTURE)
 
 class LessonAdmin(admin.ModelAdmin):
     search_fields = ('title',)
-    filter_horizontal = ('groups',)
+    list_filter = ('type', 'dayofweek', 'lesson_number', 'groups',)
     actions = [make_lecture, make_practice, set_meeting_url]
 
 admin.site.register(Faculty)

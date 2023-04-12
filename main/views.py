@@ -44,7 +44,7 @@ class BatchMeetUrlSetView(LoginRequiredMixin, UserPassesTestMixin, TemplateView)
 
         return HttpResponse(status=406)
 
-class FillCalendarView(TemplateView):
+class FillCalendarView(LoginRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs: Any) -> Dict[str, Any]:
         context = super().get_context_data(**kwargs)

@@ -1,7 +1,5 @@
 from django.contrib import admin
-from django.http import HttpResponseRedirect
-from django.shortcuts import render, redirect
-from django import forms
+from django.shortcuts import redirect
 
 from main.models import Faculty, Group, Person, Lesson, Semester, ScheduleFile
 

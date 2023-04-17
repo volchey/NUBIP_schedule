@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-tnzq*3$)e-8h4)gzg+!q-2#7e@ff2u5ei0k&mgde_kmqv2nh7-
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
 
 
 # Application definition
@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.sites',
+    'django.contrib.redirects',
 
     'main',
     'moodle',
@@ -58,6 +59,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'django.contrib.redirects.middleware.RedirectFallbackMiddleware',
 
     'debug_toolbar.middleware.DebugToolbarMiddleware',
 ]
@@ -169,6 +171,7 @@ SOCIALACCOUNT_PROVIDERS = {
 
 SITE_ID = 3
 
+LOGIN_URL='/login'
 LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/'
 

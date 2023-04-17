@@ -2,11 +2,13 @@ from typing import Any, Dict
 
 from django import forms
 from django.http import HttpResponse, HttpResponseRedirect
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from django.db.models import Q, Count
 from django.views.generic import TemplateView
 from django.views.generic.edit import FormView
 from django.contrib.auth.mixins import UserPassesTestMixin, LoginRequiredMixin
+
+from allauth.socialaccount.models import SocialAccount
 
 from schedule_nubip.settings import DEBUG
 
@@ -46,12 +48,23 @@ class BatchMeetUrlSetView(LoginRequiredMixin, UserPassesTestMixin, TemplateView)
 
 class FillCalendarView(LoginRequiredMixin, TemplateView):
 
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.is_authenticated and \
+            not SocialAccount.objects.filter(user=self.request.user).exists():
+            return redirect('/admin')
+
+        return super().dispatch(request, *args, **kwargs)
+
     def get_context_data(self, **kwargs: Any) -> Dict[str, Any]:
         context = super().get_context_data(**kwargs)
+        context['debug'] = DEBUG
+        print(self.request.user.is_staff)
         if not self.request.GET.get('update'):
             return context
 
-        email = self.request.GET.get('test_email') or self.request.user.email
+        email = self.request.user.email
+        if DEBUG:
+            email = self.request.GET.get('test_email', email)
 
         # search user email in db
         try:

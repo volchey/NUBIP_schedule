@@ -27,6 +27,7 @@ class WeekFrequency(models.IntegerChoices):
     DENOMINATOR = 3
 
 class Semester(models.Model):
+    id = models.AutoField(primary_key=True)
     startdate = models.DateField()
     enddate = models.DateField()
 
@@ -43,7 +44,9 @@ class Semester(models.Model):
         return f'{self.startdate} - {self.enddate}'
 
 class Faculty(models.Model):
-    name = models.CharField(max_length=255, primary_key=True)
+    id = models.AutoField(primary_key=True)
+    name = models.CharField(max_length=128, blank=False)
+    code = models.CharField(max_length=128, blank=True, default='')
 
     class Meta:
         db_table = 'Faculties'
@@ -57,10 +60,17 @@ class ScheduleFile(models.Model):
     faculty = models.ForeignKey(Faculty, on_delete=models.CASCADE)
     file = models.FileField(upload_to='uploads/')
 
+    class Status(models.IntegerChoices):
+        NEW = 1
+        PROCESSED = 2
+
+    status = models.IntegerField(choices=Status.choices, default=Status.NEW)
+
+
     def save(self, *args, **kwargs) -> None:
         result = super().save(*args, **kwargs)
-        parser = ScheduleFileParser(self.file.path, self.faculty, self.semester)
-        parser.serialize_to_db()
+        # parser = ScheduleFileParser(self.file.path, self.faculty, self.semester)
+        # parser.serialize_to_db()
         return result
 
     class Meta:
@@ -70,10 +80,19 @@ class ScheduleFile(models.Model):
     def __str__(self) -> str:
         return self.file.name
 
+class Specialty(models.Model):
+    code = models.CharField(max_length=64, primary_key=True)
+    name = models.CharField(max_length=64)
+    faculty = models.ForeignKey(Faculty, on_delete=models.CASCADE, null=True, blank=False)
+
+    class Meta:
+        db_table = 'Specialties'
+
 class Group(models.Model):
     name = models.CharField(max_length=64, primary_key=True)
     year = models.IntegerField(choices=YEAR_CHOICES, default=datetime.now().year)
-    faculty = models.ForeignKey(Faculty, on_delete=models.CASCADE, null=True, blank=False)
+    number = models.PositiveSmallIntegerField()
+    specialty = models.ForeignKey(Specialty, on_delete=models.CASCADE)
 
     class Type(models.IntegerChoices):
         BACHELOR = 1
@@ -88,45 +107,46 @@ class Group(models.Model):
     def __str__(self):
         return self.name
 
-class Person(models.Model):
-    firstname = models.CharField(max_length=255)
-    lastname = models.CharField(max_length=255)
-    patronymic = models.CharField(max_length=255)
-    email = models.EmailField(max_length=255, primary_key=True)
-
-    class Role(models.IntegerChoices):
-        TEACHER = 1
-        STUDENT = 2
-
-    role = models.IntegerField(choices=Role.choices)
-    group = models.ForeignKey(Group, on_delete=models.CASCADE, null=True, blank=True)
+class Subject(models.Model):
+    id = models.AutoField(primary_key=True)
+    title = models.CharField(max_length=128)
+    courseurl = models.URLField(blank=True)
 
     class Meta:
-        db_table = 'Persons'
+        db_table = 'Subjects'
 
-    def __str__(self) -> str:
-        return f'{self.lastname} {self.firstname} ({self.email})'
+    def __str__(self):
+        return self.title
+
+class SubjectTeachers(models.Model):
+    id = models.AutoField(primary_key=True)
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE)
+    teacher_id = models.IntegerField()
+
+    class Meta:
+        db_table = 'SubjectTeachers'
+
+class LessonNumber(models.Model):
+    lesson_number = models.IntegerField(primary_key=True)
+    starttime = models.TimeField()
+    endtime = models.TimeField()
+
+    class Meta:
+        db_table = 'LessonNumbers'
 
 class Lesson(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    title = models.CharField(max_length=255)
-    starttime = models.TimeField()
-    endtime = models.TimeField()
     dayofweek = models.IntegerField(choices=DayOfWeek.choices)
-
     weekfrequency = models.IntegerField(choices=WeekFrequency.choices,
                                         default=WeekFrequency.EACH_WEEK)
-    lesson_number = models.IntegerField()
-    startdate = models.DateField()
-    enddate = models.DateField()
+    lesson_number = models.ForeignKey(LessonNumber, on_delete=models.CASCADE)
+    semester = models.ForeignKey(Semester, on_delete=models.CASCADE)
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE)
     groups = models.ManyToManyField(Group)
-    teacher = models.ForeignKey(Person, on_delete=models.CASCADE, db_column="teacher_email",
-                                null=True, blank=True, default=None)
     meetingurl = models.URLField(blank=True)
     location = models.CharField(max_length=255)
 
     type = models.IntegerField(choices=Type.choices, default=Type.UNKNOWN)
-    courseurl = models.URLField(blank=True)
 
     @property
     def start_date_time(self):
@@ -144,9 +164,9 @@ class Lesson(models.Model):
         db_table = 'Lessons'
 
     def __str__(self):
-        name = self.title
+        name = self.subject.title
         if self.weekfrequency == WeekFrequency.NUMERATOR:
-            name = f'{self.title} (чисельник)'
+            name += ' (чисельник)'
         if self.weekfrequency == WeekFrequency.DENOMINATOR:
-            name = f'{self.title} (знаменник)'
+            name += ' (знаменник)'
         return f'{self.get_dayofweek_display()} {self.starttime}: {name}'

@@ -82,7 +82,7 @@ class ScheduleFile(models.Model):
 
 class Specialty(models.Model):
     code = models.CharField(max_length=64, primary_key=True)
-    name = models.CharField(max_length=64)
+    name = models.CharField(max_length=64, blank=True)
     faculty = models.ForeignKey(Faculty, on_delete=models.CASCADE, null=True, blank=False)
 
     class Meta:
@@ -104,13 +104,27 @@ class Group(models.Model):
     class Meta:
         db_table = 'Groups'
 
+    def save(self, *args, **kwargs) -> None:
+        if not self.name:
+            self.name = self.gen_name()
+        return super().save(*args, **kwargs)
+
+    def gen_name(self):
+        name = '{}-{}{:03d}'.format(self.specialty.code, self.year - 2000, self.number)
+        name += 'м' if self.type == self.Type.MASTER else 'б'
+        if self.type == self.Type.REDUCED:
+            name += 'ск'
+
+        return name
+
     def __str__(self):
         return self.name
 
 class Subject(models.Model):
     id = models.AutoField(primary_key=True)
     title = models.CharField(max_length=128)
-    courseurl = models.URLField(blank=True)
+    courseurl = models.URLField(blank=True, default='')
+    course_id = models.IntegerField(null=True, default=None)
 
     class Meta:
         db_table = 'Subjects'
@@ -134,6 +148,9 @@ class LessonNumber(models.Model):
     class Meta:
         db_table = 'LessonNumbers'
 
+    def __str__(self):
+        return f'Пара {self.lesson_number}'
+
 class Lesson(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     dayofweek = models.IntegerField(choices=DayOfWeek.choices)
@@ -149,14 +166,23 @@ class Lesson(models.Model):
     type = models.IntegerField(choices=Type.choices, default=Type.UNKNOWN)
 
     @property
+    def startdate(self):
+        days_to_add = self.dayofweek
+        if (self.weekfrequency != WeekFrequency.EACH_WEEK and
+            self.semester.weektype != self.weekfrequency):
+            days_to_add += 7
+
+        return self.semester.startdate + timedelta(days=days_to_add)
+
+    @property
     def start_date_time(self):
-        return datetime.combine(self.startdate, self.starttime).replace(
+        return datetime.combine(self.startdate, self.lesson_number.starttime).replace(
             tzinfo=timezone(timedelta(hours=2))
         )
 
     @property
     def end_date_time(self):
-        return datetime.combine(self.startdate, self.endtime).replace(
+        return datetime.combine(self.startdate, self.lesson_number.endtime).replace(
             tzinfo=timezone(timedelta(hours=2))
         )
 
@@ -169,4 +195,4 @@ class Lesson(models.Model):
             name += ' (чисельник)'
         if self.weekfrequency == WeekFrequency.DENOMINATOR:
             name += ' (знаменник)'
-        return f'{self.get_dayofweek_display()} {self.starttime}: {name}'
+        return f'{self.get_dayofweek_display()} {self.lesson_number.starttime}: {self.subject.title}'

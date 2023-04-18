@@ -4,10 +4,13 @@ import re
 import string
 import os
 from typing import List
+from difflib import SequenceMatcher
 
 from openpyxl import load_workbook
+from chunkator import chunkator
 
 from main import models
+from moodle.models import MdlCourse
 
 ALPHABET_LIST = list(string.ascii_uppercase)
 
@@ -29,33 +32,80 @@ LESSON_NUMBER_COLUMN = 2
 MAX_COL = None # horisontal limit
 MAX_ROW = None # vertical limit
 
-LESSON_TIME = {1: (time(hour=8, minute=30), time(hour=9, minute=50)),
-               2: (time(hour=10, minute=10), time(hour=11, minute=30)),
-               3: (time(hour=11, minute=50), time(hour=13, minute=10)),
-               4: (time(hour=14, minute=0), time(hour=15, minute=20)),
-               5: (time(hour=15, minute=40), time(hour=17, minute=0)),
-               6: (time(hour=17, minute=20), time(hour=18, minute=40)),
-               7: (time(hour=19, minute=0), time(hour=20, minute=20)),}
+# LESSON_TIME = {1: (time(hour=8, minute=30), time(hour=9, minute=50)),
+#                2: (time(hour=10, minute=10), time(hour=11, minute=30)),
+#                3: (time(hour=11, minute=50), time(hour=13, minute=10)),
+#                4: (time(hour=14, minute=0), time(hour=15, minute=20)),
+#                5: (time(hour=15, minute=40), time(hour=17, minute=0)),
+#                6: (time(hour=17, minute=20), time(hour=18, minute=40)),
+#                7: (time(hour=19, minute=0), time(hour=20, minute=20)),}
+
+REDUCED_GROUP_STRINGS = ('с.т.', "ст", "ск")
+
+LESSON_NAME_SIMILARITY_THRESHOLD = 0.7
 
 days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 
 class Group:
 
-    def __init__(self, course_name, spec_name, name, faculty=None):
+    def __init__(self, course_name, spec_name, number_info, faculty):
         self.course_name = course_name
-        self.spec_name = spec_name
-        self.name = name.replace('\n', '')
+        self.specialty = self.get_specialty(spec_name, faculty)
+        self.parse_number_info(number_info) # define type and number
         self.year = self.get_course_year(course_name)
-        self.faculty = faculty or models.Faculty.objects.all().first() # TODO: parse from file
-        self.db_object = models.Group.objects.filter(name=self.__str__()).first()
-        if not self.db_object:
-            self.db_object = models.Group(name=self.__str__(), year=self.year,
-                                          faculty=self.faculty,
-                                          type=models.Group.Type.BACHELOR) # TODO: parse from file
-            self.db_object.save()
+        self.faculty = faculty
+        self.db_object = self.get_db_object()
 
     def __hash__(self) -> int:
         return hash(self.__str__())
+
+    def get_db_object(self):
+        try:
+            return models.Group.objects.get(year=self.year, specialty=self.specialty,
+                                            number=self.number)
+        except models.Group.DoesNotExist:
+            db_object = models.Group(year=self.year, type=self.type,
+                                     specialty=self.specialty, number=self.number)
+            db_object.save()
+            return db_object
+
+    def parse_number_info(self, number_info):
+        self.type = models.Group.Type.BACHELOR
+        if any([part in number_info for part in REDUCED_GROUP_STRINGS]):
+            self.type = models.Group.Type.REDUCED
+
+        number = ''
+        for symbol in number_info:
+            if symbol.isdigit():
+                number += symbol
+            elif number: #number already exist, but symbol is not digit
+                break
+
+        self.number = int(number)
+
+        dot_index = number_info.find('.')
+        if dot_index > 0 and len(number_info) > dot_index:
+            try:
+                self.number = int(number_info[dot_index + 1])
+            except ValueError: # cannot convert to int
+                pass
+
+        open_bracket_index = number_info.find('(')
+        if open_bracket_index > 0 and len(number_info) > open_bracket_index:
+            try:
+                self.number = int(number_info[open_bracket_index + 1])
+            except ValueError: # cannot convert to int
+                pass
+
+
+    @staticmethod
+    def get_specialty(spec_name, faculty):
+        try:
+            return models.Specialty.objects.get(faculty=faculty, code=spec_name)
+        except models.Specialty.DoesNotExist:
+            spec = models.Specialty(faculty=faculty, code=spec_name)
+            spec.save()
+            return spec
 
     @staticmethod
     def get_course_year(course_name):
@@ -70,28 +120,48 @@ class Group:
         return self.__str__()
 
     def __str__(self) -> str:
-        return f'{self.spec_name}-{self.year - 2000}00{self.name}б'
+        return self.db_object.name
 
 class Lesson:
 
-    def __init__(self, week_day: str, number: str, info: str, freq, semester=None):
+    def __init__(self, week_day: str, number: str, info: str, freq, semester):
         self.week_day = week_day
-        self.number = int(number)
-        self.info = info
-        self.name, self.location = self.parse_info(info)
+        self.lesson_number = models.LessonNumber.objects.get(lesson_number=number)
+        self.subject, self.location = self.parse_info(info)
         self.freq = freq
-        self.semester = semester or models.Semester.objects.all().first()
+        self.semester = semester
         self.groups = []
 
     @staticmethod
     def parse_info(info):
         m = re.match(r'^((.|\n)+)\s+(\d+(\s+)?к\..+)$', info, re.M)
 
-        if m:
-            name, location = m.group(1), m.group(3)
-            name = name.replace('\n', ' ')
-            return name, location
-        return info, ""
+        if not m:
+            raise ValueError(f'Cannot parse lesson info: {info}')
+
+        name, location = m.group(1), m.group(3)
+        name = name.replace('\n', ' ')
+        try:
+            subject = models.Subject.objects.get(title=name)
+        except models.Subject.DoesNotExist:
+            course = None
+            course = MdlCourse.objects.filter(shortname__contains=name).first()
+            if not course:
+                # search course by partial match
+                for it_course in chunkator(MdlCourse.objects.all(), 100):
+                    similarity = SequenceMatcher(None, it_course.shortname, name).ratio()
+                    if similarity >= LESSON_NAME_SIMILARITY_THRESHOLD:
+                        course = it_course
+                        break
+
+            new_subject = models.Subject(title=name)
+            if course:
+                new_subject.course_id=course.id
+            # TODO: add course url
+            new_subject.save()
+            subject = new_subject
+
+        return subject, location
 
     def serialize_to_db(self):
         print(f'serializing lesson {self.__str__()}')
@@ -103,35 +173,29 @@ class Lesson:
             print("Error!! groups not found")
             return
 
-        days_to_add = self.week_day
-        if (self.freq != models.WeekFrequency.EACH_WEEK and
-            self.semester.weektype != self.freq):
-            days_to_add += 7
-
-        startdate = self.semester.startdate + timedelta(days=days_to_add)
-
         db_lesson = (models.Lesson.objects.
-                     filter(title=self.name, dayofweek=self.week_day,
-                            lesson_number=self.number, startdate=startdate)
+                     filter(subject=self.subject, dayofweek=self.week_day,
+                            lesson_number=self.lesson_number, semester=self.semester)
                      .first())
         if not db_lesson:
             db_lesson = models.Lesson() # create new
-        db_lesson.title = self.name
-        db_lesson.starttime, db_lesson.endtime = LESSON_TIME[self.number]
+        db_lesson.subject = self.subject
+        # db_lesson.starttime, db_lesson.endtime = LESSON_TIME[self.number]
         db_lesson.dayofweek = self.week_day
         db_lesson.weekfrequency = self.freq
-        db_lesson.lesson_number = self.number
-        db_lesson.startdate = startdate
-        db_lesson.enddate = self.semester.enddate
+        db_lesson.lesson_number = self.lesson_number
+        # db_lesson.startdate = startdate
+        # db_lesson.enddate = self.semester.enddate
+        db_lesson.semester = self.semester
         db_lesson.location = self.location
         db_lesson.save()
 
         for group in self.groups:
             db_lesson.groups.add(group.db_object)
 
-    def __eq__(self, __o: object) -> bool:
-        return (self.info == __o.info and self.week_day == __o.week_day and
-                self.number == __o.number)
+    # def __eq__(self, __o: object) -> bool:
+    #     return (self.info == __o.info and self.week_day == __o.week_day and
+    #             self.number == __o.number)
 
     def __hash__(self) -> int:
         return hash(self.__str__())
@@ -140,16 +204,16 @@ class Lesson:
         return self.__str__()
 
     def __str__(self):
-        name = self.name
+        name = self.subject.title
         if self.freq == models.WeekFrequency.NUMERATOR:
-            name = f'{self.name} (чисельник)'
+            name += ' (чисельник)'
         if self.freq == models.WeekFrequency.DENOMINATOR:
-            name = f'{self.name} (знаменник)'
-        return f'{days[self.week_day]} {self.number} lesson - {name} for groups {self.groups}'
+            name += ' (знаменник)'
+        return f'weekday: {self.week_day} lesson: {self.lesson_number} title: {self.subject.title}'
 
 class ScheduleFileParser:
 
-    def __init__(self, path, faculty=None, semester=None) -> None:
+    def __init__(self, path, faculty, semester) -> None:
         wb = load_workbook(path)
         self.ws = wb.active
         self.faculty = faculty
@@ -184,11 +248,11 @@ class ScheduleFileParser:
             return None
 
         group_cell = self.ws.cell(GROUP_ROW, column)
-        group_name = self.get_cell_value(group_cell)
-        if not group_name:
+        group_number = self.get_cell_value(group_cell)
+        if not group_number:
             return None
 
-        return Group(course_name, speciality_name, group_name, self.faculty)
+        return Group(course_name, speciality_name, group_number, self.faculty)
 
 
     def parse_lessons(self) -> List[Lesson]:
@@ -236,7 +300,12 @@ class ScheduleFileParser:
                     print(f'Error!! lesson number not found for lesson in cell {cell.coordinate}')
                     continue
 
-                lesson = Lesson(week_day, lesson_number, lesson_info, freq, self.semester)
+                try:
+                    lesson = Lesson(week_day, lesson_number, lesson_info, freq, self.semester)
+                except ValueError as e:
+                    print(f'Warning!! {e}')
+                    continue
+
                 try:
                     existed_lesson = next(x for x in lessons if x == lesson)
                     existed_lesson.groups.append(group)

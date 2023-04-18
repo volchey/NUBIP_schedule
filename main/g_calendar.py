@@ -36,12 +36,12 @@ class Event:
             self.interval, self.until = self.parse_recurrence(init_dict['recurrence'])
         else:
             self.uuid = lesson.id
-            self.summary = lesson.title
+            self.summary = lesson.subject.title
             self.location = lesson.location
             self.start_date_time = lesson.start_date_time
             self.end_date_time = lesson.end_date_time
             self.interval = 1 if lesson.weekfrequency == models.WeekFrequency.EACH_WEEK else 2
-            self.until = lesson.enddate
+            self.until = lesson.semester.enddate
             self.description = ''
 
     @staticmethod
@@ -242,7 +242,9 @@ class Teacher(PersonBase):
             print(f"No Enrols found for user {self.mdl_user.id}")
             return None
 
-        return models.Lesson.objects.prefetch_related('groups').filter(title__in=courses_names)
+        return (models.Lesson.objects.prefetch_related('groups')
+                .select_related('subject', 'lesson_number', 'semester')
+                .filter(title__in=courses_names))
 
     # need to be called after search_lessons
     def build_description(self, lesson: models.Lesson) -> str:
@@ -275,7 +277,9 @@ class Student(PersonBase):
         cohorts_names = list(MdlCohortMembers.objects.filter(userid=self.mdl_user)
                              .values_list('cohortid__name', flat=True))
 
-        return models.Lesson.objects.filter(groups__name__in=cohorts_names)
+        return (models.Lesson.objects
+                .select_related('subject', 'lesson_number', 'semester')
+                .filter(groups__name__in=cohorts_names))
 
     def build_description(self, lesson: models.Lesson) -> str:
         if not hasattr(self, 'course_teachers') or not hasattr(self, 'user_names'):
@@ -303,4 +307,4 @@ class Student(PersonBase):
                 self.course_teachers[course_name] = user_ids & teacher_ids
 
         description = super().build_description(lesson)
-        return f'{description}\nteachers: {[self.user_names[name] for name in self.course_teachers.get(lesson.title, [])]}'
+        return f'{description}\nteachers: {[self.user_names[name] for name in self.course_teachers.get(lesson.subject.title, [])]}'

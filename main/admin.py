@@ -1,7 +1,8 @@
 from django.contrib import admin
 from django.shortcuts import redirect
 
-from main.models import Faculty, Group, Lesson, Semester, ScheduleFile
+from main.models import (Faculty, Group, Lesson, Semester, ScheduleFile, LessonNumber, Subject,
+                         Specialty)
 
 @admin.action(description='Set Meeting Url', permissions=['change'])
 def set_meeting_url(modeladmin, request, queryset):
@@ -27,5 +28,8 @@ class LessonAdmin(admin.ModelAdmin):
 admin.site.register(Faculty)
 admin.site.register(Group)
 admin.site.register(Lesson, LessonAdmin)
+admin.site.register(LessonNumber)
 admin.site.register(Semester)
 admin.site.register(ScheduleFile)
+admin.site.register(Subject)
+admin.site.register(Specialty)

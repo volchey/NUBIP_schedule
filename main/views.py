@@ -73,6 +73,13 @@ class FillCalendarView(LoginRequiredMixin, TemplateView):
             context['message'] = f'Email {email} was not found in database, please use another email or contact administrator'
             return context
 
+        person_obj = self.create_person(user)
+        # create google calendar events for user
+        context['message'] = person_obj.update_calendar()
+
+        return context
+
+    def create_person(self, user):
         role_assignments = (
             MdlRoleAssignments.objects.filter(userid=user)
             .annotate(teaches=Count(1, filter=Q(roleid__shortname='editingteacher')),
@@ -81,12 +88,7 @@ class FillCalendarView(LoginRequiredMixin, TemplateView):
         )
 
         if role_assignments.teaches > role_assignments.studying:
-            person_obj = Teacher(self.request.user, user)
+            return Teacher(self.request.user, user)
         else:
-            person_obj = Student(self.request.user, user)
-
-        # create google calendar events for user
-        context['message'] = person_obj.update_calendar()
-
-        return context
+            return Student(self.request.user, user)
 

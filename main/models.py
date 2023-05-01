@@ -3,8 +3,6 @@ from django.db import models
 
 from datetime import datetime, date, timezone, timedelta
 
-from main.schedule_file_parser import ScheduleFileParser
-
 YEAR_CHOICES = [(r,r) for r in range(2015, date.today().year+1)]
 
 class DayOfWeek(models.IntegerChoices):

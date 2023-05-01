@@ -87,7 +87,7 @@ class Event:
         return interval, until
 
     def api_create(self, service):
-        print(f'Creating event {self.uuid}')
+        print(f'Creating event {self.summary}')
         try:
             service.events().import_(calendarId='primary',
                                     body=self._event_dict).execute()
@@ -96,11 +96,11 @@ class Event:
                 self.api_update(service)
 
     def api_update(self, service):
-        print(f'Updating event {self.id}')
+        print(f'Updating event {self.summary}')
         service.events().update(calendarId='primary', eventId=self.id,
                                 body=self._event_dict).execute()
     def api_delete(self, service):
-        print(f'deleting event {self.id}')
+        print(f'deleting event {self.summary}')
         service.events().delete(calendarId='primary', eventId=self.id,
                                 sendNotifications=False).execute()
 

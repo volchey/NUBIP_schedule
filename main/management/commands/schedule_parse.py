@@ -15,5 +15,6 @@ class Command(BaseCommand):
                 parser = ScheduleFileParser(new_file.file, new_file.faculty, new_file.semester)
                 parser.serialize_to_db()
                 new_file.status = ScheduleFile.Status.PROCESSED
+                new_file.save()
 
             time.sleep(SLEEP_SECONDS)

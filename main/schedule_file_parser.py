@@ -42,9 +42,33 @@ MAX_ROW = None # vertical limit
 
 REDUCED_GROUP_STRINGS = ('с.т.', "ст", "ск")
 
-LESSON_NAME_SIMILARITY_THRESHOLD = 0.7
+LESSON_NAME_SIMILARITY_THRESHOLD = 0.5
 
 days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+
+def remove_brackets(string):
+    pattern = r"\([^()]*\)"
+    result = re.sub(pattern, "", string)
+    return result
+
+def find_course(name):
+    course = None
+    course = MdlCourse.objects.filter(shortname__contains=name).first()
+    if not course:
+        max_similarity = 0
+        for it_course in chunkator(MdlCourse.objects.all(), 100):
+            # search course by partial match
+            shortname = remove_brackets(it_course.shortname)
+            fullname = remove_brackets(it_course.fullname)
+            shortname_similarity = SequenceMatcher(None, shortname, name).ratio()
+            fullname_similarity = SequenceMatcher(None, fullname, name).ratio()
+            similarity = max(shortname_similarity, fullname_similarity)
+            if similarity < LESSON_NAME_SIMILARITY_THRESHOLD or \
+               similarity < max_similarity:
+                continue
+            max_similarity = similarity
+            course = it_course
+    return course
 
 class Group:
 
@@ -143,17 +167,13 @@ class Lesson:
         name = name.replace('\n', ' ')
         try:
             subject = models.Subject.objects.get(title=name)
+            if not subject.course_id:
+                course = find_course(name)
+                if course:
+                    subject.course_id = course.id
+                    subject.save()
         except models.Subject.DoesNotExist:
-            course = None
-            course = MdlCourse.objects.filter(shortname__contains=name).first()
-            if not course:
-                # search course by partial match
-                for it_course in chunkator(MdlCourse.objects.all(), 100):
-                    similarity = SequenceMatcher(None, it_course.shortname, name).ratio()
-                    if similarity >= LESSON_NAME_SIMILARITY_THRESHOLD:
-                        course = it_course
-                        break
-
+            course = find_course(name)
             new_subject = models.Subject(title=name)
             if course:
                 new_subject.course_id=course.id

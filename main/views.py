@@ -58,8 +58,9 @@ class FillCalendarView(LoginRequiredMixin, TemplateView):
     def get_context_data(self, **kwargs: Any) -> Dict[str, Any]:
         context = super().get_context_data(**kwargs)
         context['debug'] = DEBUG
-        print(self.request.user.is_staff)
-        if not self.request.GET.get('update'):
+        update = self.request.GET.get('update')
+        delete = self.request.GET.get('delete')
+        if not update and not delete:
             return context
 
         email = self.request.user.email
@@ -75,7 +76,11 @@ class FillCalendarView(LoginRequiredMixin, TemplateView):
 
         person_obj = self.create_person(user)
         # create google calendar events for user
-        context['message'] = person_obj.update_calendar()
+        if update:
+            context['message'] = person_obj.update_calendar()
+        elif delete:
+            print('deleting calendar')
+            context['message'] = person_obj.delete_calendar()
 
         return context
 

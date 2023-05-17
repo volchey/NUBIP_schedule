@@ -159,7 +159,12 @@ class PersonBase:
         self.user = user
         self.mdl_user = mdl_user
 
-    def update_calendar(self):
+    def get_calendar_events(self):
+        """Connect to user google calendar and return events created by this app
+
+        Returns:
+            Dict[int, Event]: Events from user calendar with defined source
+        """
         if self.user:
             try:
                 social_token = SocialToken.objects.get(account__user=self.user)
@@ -195,6 +200,18 @@ class PersonBase:
             event_obj = Event(api_event)
             events[event_obj.uuid] = event_obj
 
+        return events
+
+    def delete_calendar(self):
+        events = self.get_calendar_events()
+
+        for _, event in events.items():
+            event.api_delete(self.service)
+
+        return f'deleted {len(events)} events'
+
+    def update_calendar(self):
+        events = self.get_calendar_events()
         checked, updated, created, deleted = list(), list(), list(), list()
 
         lessons = self.search_lessons()

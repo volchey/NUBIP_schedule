@@ -64,13 +64,6 @@ class ScheduleFile(models.Model):
 
     status = models.IntegerField(choices=Status.choices, default=Status.NEW)
 
-
-    def save(self, *args, **kwargs) -> None:
-        result = super().save(*args, **kwargs)
-        # parser = ScheduleFileParser(self.file.path, self.faculty, self.semester)
-        # parser.serialize_to_db()
-        return result
-
     class Meta:
         db_table = 'ScheduleFiles'
         unique_together = (("semester", "faculty"),)

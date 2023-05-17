@@ -23,7 +23,7 @@ class Event:
 
     # must be passed one of sources
     def __init__(self, init_dict, lesson: models.Lesson = None):
-        if init_dict:
+        if init_dict: # from google calendar event
             self.id = init_dict.get('id')
             self.uuid = self.parseUUID(init_dict.get('iCalUID'))
             self.summary = init_dict.get('summary', '')
@@ -34,7 +34,7 @@ class Event:
                                  init_dict['end'].get('dateTime'))
             )
             self.interval, self.until = self.parse_recurrence(init_dict['recurrence'])
-        else:
+        else: # from lesson event
             self.uuid = lesson.id
             self.summary = lesson.subject.title
             self.location = lesson.location
@@ -149,6 +149,9 @@ class Event:
     def __ne__(self, other: 'Event'):
         return not self == other
 
+    def __str__(self):
+        return f'{self.uuid} {self.summary}'
+
 
 class PersonBase:
 
@@ -172,7 +175,7 @@ class PersonBase:
 
         self.service = build('calendar', 'v3', credentials=creds)
 
-        now = datetime.utcnow().isoformat() + 'Z'
+        now = (datetime.utcnow() - timedelta(days=30)).isoformat() + 'Z'
         two_weeks_after = (datetime.utcnow() + timedelta(days=14)).isoformat() + 'Z'
 
         try:
@@ -195,6 +198,10 @@ class PersonBase:
         checked, updated, created, deleted = list(), list(), list(), list()
 
         lessons = self.search_lessons()
+        lessons = lessons.filter(semester__startdate__lt=datetime.now().date(),
+                                 semester__enddate__gt=datetime.now().date())
+        if not lessons:
+            return "No active lessons found for user"
         for lesson in lessons:
             lesson_event = Event(None, lesson)
             lesson_event.description = self.build_description(lesson)
@@ -217,57 +224,29 @@ class PersonBase:
             event.api_delete(self.service)
             deleted.append(id)
 
-        result = f'checked: {len(checked)}, updated: {len(updated)}, created: {len(created)}, deleted: {len(deleted)}'
+        result = f'checked: {len(checked)}, updated: {len(updated)}, created: '\
+                 f'{len(created)}, deleted: {len(deleted)}'
         return result
 
     def build_description(self, lesson: models.Lesson):
         return f'<a href="{lesson.meetingurl}">Meeting Url</a>\n'\
                f'type: {lesson.get_type_display()}'
 
+    @property
+    def enrolled_course_ids(self):
+        return ([id for id in (MdlUserEnrolments.objects
+                               .filter(userid=self.mdl_user, status=0)
+                               .values_list('enrolid__courseid_id', flat=True))])
+
 
 class Teacher(PersonBase):
 
     def search_lessons(self):
-        courses_names = list()
-        self.courses_ids = list()
-
-        for course_id, course_name in (MdlUserEnrolments.objects
-                                       .filter(userid=self.mdl_user, status=0)
-                                       .values_list('enrolid__courseid_id',
-                                                    'enrolid__courseid__shortname')):
-            courses_names.append(course_name)
-            self.courses_ids.append(course_id)
-
-        if not course_name:
-            print(f"No Enrols found for user {self.mdl_user.id}")
-            return None
-
         return (models.Lesson.objects.prefetch_related('groups')
                 .select_related('subject', 'lesson_number', 'semester')
-                .filter(title__in=courses_names))
+                .filter(subject__course_id__in=self.enrolled_course_ids))
 
-    # need to be called after search_lessons
     def build_description(self, lesson: models.Lesson) -> str:
-        # if not hasattr(self, 'course_cohorts'):
-        #     course_users = {
-        #         name: userid for name, userid in (
-        #             MdlUserEnrolments.objects.filter(enrolid__courseid__in=self.courses_ids)
-        #             .values_list('enrolid__courseid__shortname', 'userid_id')
-        #         )
-        #     }
-
-        #     user_cohorts = {
-        #         user: cohort for user, cohort in (
-        #             MdlCohortMembers.objects.filter(userid__in=course_users.values())
-        #             .values_list('userid_id', 'cohortid__name')
-        #         )
-        #     }
-
-        #     self.course_cohorts = defaultdict(list)
-        #     for course, userid in course_users.items():
-        #         self.course_cohorts[course].append(user_cohorts.get(userid))
-
-        # return f'groups: {self.course_cohorts.get(title)}'
         description = super().build_description(lesson)
         return f'{description}\ngroups: {[group.name for group in lesson.groups.all()]}'
 
@@ -279,7 +258,8 @@ class Student(PersonBase):
 
         return (models.Lesson.objects
                 .select_related('subject', 'lesson_number', 'semester')
-                .filter(groups__name__in=cohorts_names))
+                .filter(groups__name__in=cohorts_names,
+                        subject__course_id__in=self.enrolled_course_ids))
 
     def build_description(self, lesson: models.Lesson) -> str:
         if not hasattr(self, 'course_teachers') or not hasattr(self, 'user_names'):

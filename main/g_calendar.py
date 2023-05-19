@@ -1,8 +1,7 @@
 from __future__ import print_function
 from collections import defaultdict
 from datetime import datetime, timedelta
-from typing import Dict, List
-from pprint import pprint
+from typing import Dict
 import uuid
 
 from google.oauth2.credentials import Credentials

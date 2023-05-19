@@ -1,8 +1,6 @@
-from collections import defaultdict
-from datetime import datetime, time, timedelta
+from datetime import datetime
 import re
 import string
-import os
 from typing import List
 from difflib import SequenceMatcher
 
@@ -31,14 +29,6 @@ LESSON_NUMBER_COLUMN = 2
 
 MAX_COL = None # horisontal limit
 MAX_ROW = None # vertical limit
-
-# LESSON_TIME = {1: (time(hour=8, minute=30), time(hour=9, minute=50)),
-#                2: (time(hour=10, minute=10), time(hour=11, minute=30)),
-#                3: (time(hour=11, minute=50), time(hour=13, minute=10)),
-#                4: (time(hour=14, minute=0), time(hour=15, minute=20)),
-#                5: (time(hour=15, minute=40), time(hour=17, minute=0)),
-#                6: (time(hour=17, minute=20), time(hour=18, minute=40)),
-#                7: (time(hour=19, minute=0), time(hour=20, minute=20)),}
 
 REDUCED_GROUP_STRINGS = ('с.т.', "ст", "ск")
 
@@ -200,12 +190,9 @@ class Lesson:
         if not db_lesson:
             db_lesson = models.Lesson() # create new
         db_lesson.subject = self.subject
-        # db_lesson.starttime, db_lesson.endtime = LESSON_TIME[self.number]
         db_lesson.dayofweek = self.week_day
         db_lesson.weekfrequency = self.freq
         db_lesson.lesson_number = self.lesson_number
-        # db_lesson.startdate = startdate
-        # db_lesson.enddate = self.semester.enddate
         db_lesson.semester = self.semester
         db_lesson.location = self.location
         db_lesson.save()
@@ -256,7 +243,6 @@ class ScheduleFileParser:
                 week_day += 1
 
     def parse_group(self, column: int) -> Group | None:
-        # print(column)
         course_cell = self.ws.cell(COURSES_ROW, column)
         course_name = self.get_cell_value(course_cell)
         if not course_name:
@@ -366,7 +352,6 @@ class ScheduleFileParser:
     def get_merged_range(self, cell_name):
         if not cell_name:
             return None
-        # print(cell_name)
         for merged_range in self.ws.merged_cells.ranges:
             if cell_name in merged_range:
                 return merged_range

@@ -14,7 +14,6 @@ class MdlCohort(models.Model):
         managed = False
         db_table = 'mdl_cohort'
 
-
 class MdlCohortMembers(models.Model):
     id = models.BigAutoField(primary_key=True)
     cohortid = models.ForeignKey(MdlCohort, on_delete=models.CASCADE, db_column='cohortid')
@@ -27,7 +26,6 @@ class MdlCohortMembers(models.Model):
         db_table = 'mdl_cohort_members'
         unique_together = (('cohortid', 'userid'),)
 
-
 class MdlCourse(models.Model):
     id = models.BigAutoField(primary_key=True)
     fullname = models.CharField(max_length=254)
@@ -38,7 +36,6 @@ class MdlCourse(models.Model):
     class Meta:
         managed = False
         db_table = 'mdl_course'
-
 
 class MdlUser(models.Model):
     id = models.BigAutoField(primary_key=True)
@@ -55,7 +52,6 @@ class MdlUser(models.Model):
         db_table = 'mdl_user'
         unique_together = (('mnethostid', 'username'),)
 
-
 class MdlUserEnrolments(models.Model):
     id = models.BigAutoField(primary_key=True)
     status = models.BigIntegerField()
@@ -68,7 +64,6 @@ class MdlUserEnrolments(models.Model):
         managed = False
         db_table = 'mdl_user_enrolments'
         unique_together = (('enrolid', 'userid'),)
-
 
 class MdlEnrol(models.Model):
     id = models.BigAutoField(primary_key=True)

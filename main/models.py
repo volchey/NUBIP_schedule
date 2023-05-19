@@ -123,14 +123,6 @@ class Subject(models.Model):
     def __str__(self):
         return self.title
 
-class SubjectTeachers(models.Model):
-    id = models.AutoField(primary_key=True)
-    subject = models.ForeignKey(Subject, on_delete=models.CASCADE)
-    teacher_id = models.IntegerField()
-
-    class Meta:
-        db_table = 'SubjectTeachers'
-
 class LessonNumber(models.Model):
     lesson_number = models.IntegerField(primary_key=True)
     starttime = models.TimeField()

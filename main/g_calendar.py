@@ -279,13 +279,11 @@ class Student(PersonBase):
 
     def build_description(self, lesson: models.Lesson) -> str:
         if not hasattr(self, 'course_teachers') or not hasattr(self, 'user_names'):
-            course_ids = list(MdlUserEnrolments.objects.filter(userid=self.mdl_user, status=0)
-                          .values_list('enrolid__courseid_id', flat=True))
-
             course_users = defaultdict(set)
             self.user_names = dict()
             for course_name, user_id, firstname, lastname in (
-                MdlUserEnrolments.objects.filter(enrolid__courseid__in=course_ids)
+                MdlUserEnrolments.objects
+                .filter(enrolid__courseid__in=self.enrolled_course_ids, status=0)
                 .values_list('enrolid__courseid__shortname', 'userid_id',
                              'userid__firstname', 'userid__lastname')
                 ):

@@ -65,7 +65,9 @@ class FillCalendarView(LoginRequiredMixin, TemplateView):
 
         email = self.request.user.email
         if DEBUG:
-            email = self.request.GET.get('test_email', email)
+            email = self.request.GET.get('test_email')
+            if not email:
+                email = self.request.user.email
 
         # search user email in db
         try:

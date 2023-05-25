@@ -23,6 +23,10 @@ def make_lecture(modeladmin, request, queryset):
     Lesson.objects.filter(id__in=ids).update(type=Type.LECTURE)
 
 
+class SubjectAdmin(admin.ModelAdmin):
+    search_fields = ('title',)
+
+
 class LessonAdmin(admin.ModelAdmin):
     search_fields = ('subject__title',)
     list_filter = ('type', 'dayofweek', 'lesson_number', 'groups',)
@@ -35,5 +39,5 @@ admin.site.register(Lesson, LessonAdmin)
 admin.site.register(LessonNumber)
 admin.site.register(Semester)
 admin.site.register(ScheduleFile)
-admin.site.register(Subject)
+admin.site.register(Subject, SubjectAdmin)
 admin.site.register(Specialty)

@@ -26,29 +26,39 @@ class CalendarException(Exception):
 
 class Event:
 
-    # must be passed one of sources
-    def __init__(self, init_dict, lesson: models.Lesson = None):
-        if init_dict:  # from google calendar event
-            self.id = init_dict.get('id')
-            self.uuid = self.parseUUID(init_dict.get('iCalUID'))
-            self.summary = init_dict.get('summary', '')
-            self.description = init_dict.get('description', '')
-            self.location = init_dict.get('location', '')
-            self.start_date_time, self.end_date_time = (
-                self.parse_dates(init_dict['start'].get('dateTime'),
-                                 init_dict['end'].get('dateTime'))
-            )
-            self.interval, self.until = self.parse_recurrence(
-                init_dict['recurrence'])
-        else:  # from lesson event
-            self.uuid = lesson.id
-            self.summary = lesson.subject.title
-            self.location = lesson.location
-            self.start_date_time = lesson.start_date_time
-            self.end_date_time = lesson.end_date_time
-            self.interval = 1 if lesson.weekfrequency == models.WeekFrequency.EACH_WEEK else 2
-            self.until = lesson.semester.enddate
-            self.description = ''
+    @staticmethod
+    def create_from_api_dict(init_dict: Dict) -> 'Event':
+        new_event = Event()
+
+        new_event.id = init_dict.get('id')
+        new_event.uuid = new_event.parseUUID(init_dict.get('iCalUID'))
+        new_event.summary = init_dict.get('summary', '')
+        new_event.description = init_dict.get('description', '')
+        new_event.location = init_dict.get('location', '')
+        new_event.start_date_time, new_event.end_date_time = (
+            new_event.parse_dates(init_dict['start'].get('dateTime'),
+                                  init_dict['end'].get('dateTime'))
+        )
+        new_event.interval, new_event.until = new_event.parse_recurrence(
+            init_dict['recurrence'])
+
+        return new_event
+
+    @staticmethod
+    def create_from_lesson(lesson: models.Lesson) -> 'Event':
+        new_event = Event()
+
+        new_event.uuid = lesson.id
+        new_event.summary = lesson.subject.title
+        new_event.location = lesson.location
+        new_event.start_date_time = lesson.start_date_time
+        new_event.end_date_time = lesson.end_date_time
+        new_event.interval = 1 if lesson.weekfrequency == \
+            models.WeekFrequency.EACH_WEEK else 2
+        new_event.until = lesson.semester.enddate
+        new_event.description = ''
+
+        return new_event
 
     @staticmethod
     def parse_dates(start: str, end: str):
@@ -205,7 +215,7 @@ class PersonBase:
             source = api_event.get('source')
             if not source or source.get('title') != SOURCE_NAME:
                 continue
-            event_obj = Event(api_event)
+            event_obj = Event.create_from_api_dict(api_event)
             events[event_obj.uuid] = event_obj
 
         return events
@@ -235,7 +245,7 @@ class PersonBase:
         if not lessons:
             return "No active lessons found for user"
         for lesson in lessons:
-            lesson_event = Event(None, lesson)
+            lesson_event = Event.create_from_lesson(lesson)
             lesson_event.description = self.build_description(lesson)
             if lesson.id in events:
                 if events[lesson.id] != lesson_event:  # lesson info changed

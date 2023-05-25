@@ -19,6 +19,11 @@ from schedule_nubip.settings import DEBUG
 SOURCE_NAME = 'scheduleNUBIP'
 
 
+class CalendarException(Exception):
+    def __init__(self, *args: object) -> None:
+        super().__init__(*args)
+
+
 class Event:
 
     # must be passed one of sources
@@ -170,14 +175,15 @@ class PersonBase:
             try:
                 social_token = SocialToken.objects.get(account__user=self.user)
             except SocialToken.DoesNotExist:
-                return f'Token was not found for Email {self.user.email}'
+                raise CalendarException(
+                    f'Token was not found for Email {self.user.email}')
 
             creds = Credentials(token=social_token.token,
                                 refresh_token=social_token.token_secret,
                                 client_id=social_token.app.client_id,
                                 client_secret=social_token.app.secret)
         else:
-            return 'User not authorisized'
+            raise CalendarException('User not authorisized')
 
         self.service = build('calendar', 'v3', credentials=creds)
 
@@ -190,7 +196,7 @@ class PersonBase:
                                                        timeMax=two_weeks_after,
                                                        singleEvents=False).execute()
         except RefreshError:
-            return 'Refresh Error try to login again'
+            raise CalendarException('Refresh Error try to login again')
 
         api_events = events_result.get('items', [])
 
@@ -205,7 +211,10 @@ class PersonBase:
         return events
 
     def delete_calendar(self):
-        events = self.get_calendar_events()
+        try:
+            events = self.get_calendar_events()
+        except CalendarException as e:
+            return str(e)
 
         for _, event in events.items():
             event.api_delete(self.service)
@@ -213,7 +222,11 @@ class PersonBase:
         return f'deleted {len(events)} events'
 
     def update_calendar(self):
-        events = self.get_calendar_events()
+        try:
+            events = self.get_calendar_events()
+        except CalendarException as e:
+            return str(e)
+
         checked, updated, created, deleted = list(), list(), list(), list()
 
         lessons = self.search_lessons()

@@ -12,7 +12,8 @@ from google.auth.exceptions import RefreshError
 from allauth.socialaccount.models import SocialToken
 
 from main import models
-from moodle.models import (MdlUserEnrolments, MdlCohortMembers, MdlRoleAssignments)
+from moodle.models import (
+    MdlUserEnrolments, MdlCohortMembers, MdlRoleAssignments)
 from schedule_nubip.settings import DEBUG
 
 SOURCE_NAME = 'scheduleNUBIP'
@@ -22,7 +23,7 @@ class Event:
 
     # must be passed one of sources
     def __init__(self, init_dict, lesson: models.Lesson = None):
-        if init_dict: # from google calendar event
+        if init_dict:  # from google calendar event
             self.id = init_dict.get('id')
             self.uuid = self.parseUUID(init_dict.get('iCalUID'))
             self.summary = init_dict.get('summary', '')
@@ -32,8 +33,9 @@ class Event:
                 self.parse_dates(init_dict['start'].get('dateTime'),
                                  init_dict['end'].get('dateTime'))
             )
-            self.interval, self.until = self.parse_recurrence(init_dict['recurrence'])
-        else: # from lesson event
+            self.interval, self.until = self.parse_recurrence(
+                init_dict['recurrence'])
+        else:  # from lesson event
             self.uuid = lesson.id
             self.summary = lesson.subject.title
             self.location = lesson.location
@@ -52,12 +54,11 @@ class Event:
             end_date_time = datetime.strptime(end, '%Y-%m-%dT%H:%M:%S%z')
         return start_date_time, end_date_time
 
-
     @staticmethod
     def parseUUID(id: str):
         if not id:
             return None
-        if '@' in id: # 141jrtl3jin9tbssql0ndvkpf4@google.com
+        if '@' in id:  # 141jrtl3jin9tbssql0ndvkpf4@google.com
             id = id.split('@')[0]
         try:
             return uuid.UUID(id)
@@ -89,7 +90,7 @@ class Event:
         print(f'Creating event {self.summary}')
         try:
             service.events().import_(calendarId='primary',
-                                    body=self._event_dict).execute()
+                                     body=self._event_dict).execute()
         except HttpError as error:
             if error.reason == 'The requested identifier already exists.':
                 self.api_update(service)
@@ -98,6 +99,7 @@ class Event:
         print(f'Updating event {self.summary}')
         service.events().update(calendarId='primary', eventId=self.id,
                                 body=self._event_dict).execute()
+
     def api_delete(self, service):
         print(f'deleting event {self.summary}')
         service.events().delete(calendarId='primary', eventId=self.id,
@@ -180,12 +182,13 @@ class PersonBase:
         self.service = build('calendar', 'v3', credentials=creds)
 
         now = (datetime.utcnow() - timedelta(days=30)).isoformat() + 'Z'
-        two_weeks_after = (datetime.utcnow() + timedelta(days=14)).isoformat() + 'Z'
+        two_weeks_after = (datetime.utcnow() +
+                           timedelta(days=14)).isoformat() + 'Z'
 
         try:
             events_result = self.service.events().list(calendarId='primary', timeMin=now,
-                                                    timeMax=two_weeks_after,
-                                                    singleEvents=False).execute()
+                                                       timeMax=two_weeks_after,
+                                                       singleEvents=False).execute()
         except RefreshError:
             return 'Refresh Error try to login again'
 
@@ -222,8 +225,9 @@ class PersonBase:
             lesson_event = Event(None, lesson)
             lesson_event.description = self.build_description(lesson)
             if lesson.id in events:
-                if events[lesson.id] != lesson_event: # lesson info changed
-                    lesson_event.id = events[lesson.id].id # events created from model doesn't have id
+                if events[lesson.id] != lesson_event:  # lesson info changed
+                    # events created from model doesn't have id
+                    lesson_event.id = events[lesson.id].id
                     lesson_event.api_update(self.service)
                     updated.append(lesson.id)
                 else:
@@ -266,6 +270,7 @@ class Teacher(PersonBase):
         description = super().build_description(lesson)
         return f'{description}\ngroups: {[group.name for group in lesson.groups.all()]}'
 
+
 class Student(PersonBase):
 
     def search_lessons(self):
@@ -286,15 +291,15 @@ class Student(PersonBase):
                 .filter(enrolid__courseid__in=self.enrolled_course_ids, status=0)
                 .values_list('enrolid__courseid__shortname', 'userid_id',
                              'userid__firstname', 'userid__lastname')
-                ):
+            ):
                 course_users[course_name].add(user_id)
                 self.user_names[user_id] = f'{firstname} {lastname}'
 
             teacher_ids = set(MdlRoleAssignments.objects
-                               .filter(userid__in=set().union(*course_users.values()),
-                                       roleid__shortname='editingteacher')
-                               .values_list('userid_id', flat=True)
-                               .distinct())
+                              .filter(userid__in=set().union(*course_users.values()),
+                                      roleid__shortname='editingteacher')
+                              .values_list('userid_id', flat=True)
+                              .distinct())
 
             self.course_teachers = dict()
             for course_name, user_ids in course_users.items():

@@ -14,8 +14,8 @@ ALPHABET_LIST = list(string.ascii_uppercase)
 
 FACULTY_NAME_CELL = 'Q1'
 
-TITLE_COLUMNS = 2 # titles, weekday names, lessons number fit here
-TITLE_ROWS = 6 # faculty, course, group
+TITLE_COLUMNS = 2  # titles, weekday names, lessons number fit here
+TITLE_ROWS = 6  # faculty, course, group
 
 COURSES_ROW = 3
 
@@ -27,19 +27,22 @@ DAYS_START_ROW = 7
 
 LESSON_NUMBER_COLUMN = 2
 
-MAX_COL = None # horisontal limit
-MAX_ROW = None # vertical limit
+MAX_COL = None  # horisontal limit
+MAX_ROW = None  # vertical limit
 
 REDUCED_GROUP_STRINGS = ('с.т.', "ст", "ск")
 
 LESSON_NAME_SIMILARITY_THRESHOLD = 0.5
 
-days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+days = ['Monday', 'Tuesday', 'Wednesday',
+        'Thursday', 'Friday', 'Saturday', 'Sunday']
+
 
 def remove_brackets(string):
     pattern = r"\([^()]*\)"
     result = re.sub(pattern, "", string)
     return result
+
 
 def find_course(name):
     course = None
@@ -50,7 +53,8 @@ def find_course(name):
             # search course by partial match
             shortname = remove_brackets(it_course.shortname)
             fullname = remove_brackets(it_course.fullname)
-            shortname_similarity = SequenceMatcher(None, shortname, name).ratio()
+            shortname_similarity = SequenceMatcher(
+                None, shortname, name).ratio()
             fullname_similarity = SequenceMatcher(None, fullname, name).ratio()
             similarity = max(shortname_similarity, fullname_similarity)
             if similarity < LESSON_NAME_SIMILARITY_THRESHOLD or \
@@ -60,12 +64,13 @@ def find_course(name):
             course = it_course
     return course
 
+
 class Group:
 
     def __init__(self, course_name, spec_name, number_info, faculty):
         self.course_name = course_name
         self.specialty = self.get_specialty(spec_name, faculty)
-        self.parse_number_info(number_info) # define type and number
+        self.parse_number_info(number_info)  # define type and number
         self.year = self.get_course_year(course_name)
         self.faculty = faculty
         self.db_object = self.get_db_object()
@@ -75,11 +80,13 @@ class Group:
 
     def get_db_object(self):
         try:
-            return models.Group.objects.get(year=self.year, specialty=self.specialty,
+            return models.Group.objects.get(year=self.year,
+                                            specialty=self.specialty,
                                             number=self.number)
         except models.Group.DoesNotExist:
             db_object = models.Group(year=self.year, type=self.type,
-                                     specialty=self.specialty, number=self.number)
+                                     specialty=self.specialty,
+                                     number=self.number)
             db_object.save()
             return db_object
 
@@ -92,7 +99,7 @@ class Group:
         for symbol in number_info:
             if symbol.isdigit():
                 number += symbol
-            elif number: #number already exist, but symbol is not digit
+            elif number:  # number already exist, but symbol is not digit
                 break
 
         self.number = int(number)
@@ -101,16 +108,15 @@ class Group:
         if dot_index > 0 and len(number_info) > dot_index:
             try:
                 self.number = int(number_info[dot_index + 1])
-            except ValueError: # cannot convert to int
+            except ValueError:  # cannot convert to int
                 pass
 
         open_bracket_index = number_info.find('(')
         if open_bracket_index > 0 and len(number_info) > open_bracket_index:
             try:
                 self.number = int(number_info[open_bracket_index + 1])
-            except ValueError: # cannot convert to int
+            except ValueError:  # cannot convert to int
                 pass
-
 
     @staticmethod
     def get_specialty(spec_name, faculty):
@@ -126,7 +132,7 @@ class Group:
         m = re.search(r"\d", course_name)
         if m:
             year = datetime.now().year - int(m.group(0))
-            if datetime.now().month > 10: # second semester
+            if datetime.now().month > 10:  # second semester
                 year += 1
             return year
 
@@ -136,11 +142,13 @@ class Group:
     def __str__(self) -> str:
         return self.db_object.name
 
+
 class Lesson:
 
     def __init__(self, week_day: str, number: str, info: str, freq, semester):
         self.week_day = week_day
-        self.lesson_number = models.LessonNumber.objects.get(lesson_number=number)
+        self.lesson_number = models.LessonNumber.objects.get(
+            lesson_number=number)
         self.subject, self.location = self.parse_info(info)
         self.freq = freq
         self.semester = semester
@@ -166,7 +174,7 @@ class Lesson:
             course = find_course(name)
             new_subject = models.Subject(title=name)
             if course:
-                new_subject.course_id=course.id
+                new_subject.course_id = course.id
             # TODO: add course url
             new_subject.save()
             subject = new_subject
@@ -185,10 +193,11 @@ class Lesson:
 
         db_lesson = (models.Lesson.objects.
                      filter(subject=self.subject, dayofweek=self.week_day,
-                            lesson_number=self.lesson_number, semester=self.semester)
+                            lesson_number=self.lesson_number,
+                            semester=self.semester)
                      .first())
         if not db_lesson:
-            db_lesson = models.Lesson() # create new
+            db_lesson = models.Lesson()  # create new
         db_lesson.subject = self.subject
         db_lesson.dayofweek = self.week_day
         db_lesson.weekfrequency = self.freq
@@ -216,7 +225,10 @@ class Lesson:
             name += ' (чисельник)'
         if self.freq == models.WeekFrequency.DENOMINATOR:
             name += ' (знаменник)'
-        return f'weekday: {self.week_day} lesson: {self.lesson_number} title: {self.subject.title}'
+        return f'weekday: {self.week_day} ' \
+               f'lesson: {self.lesson_number}' \
+               f'title: {self.subject.title}'
+
 
 class ScheduleFileParser:
 
@@ -260,17 +272,18 @@ class ScheduleFileParser:
 
         return Group(course_name, speciality_name, group_number, self.faculty)
 
-
     def parse_lessons(self) -> List[Lesson]:
         lessons = list()
-        for column_cells in self.ws.iter_cols(min_row=TITLE_ROWS + 1, min_col=TITLE_COLUMNS + 1,
-                                      max_row=MAX_ROW, max_col=MAX_COL):
+        for column_cells in self.ws.iter_cols(min_row=TITLE_ROWS + 1,
+                                              min_col=TITLE_COLUMNS + 1,
+                                              max_row=MAX_ROW, max_col=MAX_COL):
             if not column_cells:
                 continue
 
             group = self.parse_group(column_cells[0].column)
             if not group:
-                print(f'Error!! group not found for column {column_cells[0].column}')
+                print(f'Error!! group not found '
+                      f'for column {column_cells[0].column}')
                 continue
 
             for cell in column_cells:
@@ -280,34 +293,40 @@ class ScheduleFileParser:
 
                 cell_merged_range = self.get_merged_range(cell.coordinate)
                 if (not cell.value and cell_merged_range and
-                    cell_merged_range.min_row != cell.row):
-                    continue # avoid lesson duplicates (vertical merged cells)
+                        cell_merged_range.min_row != cell.row):
+                    continue  # avoid lesson duplicates (vertical merged cells)
 
                 week_day = self.week_day_ranges[cell.row]
                 if week_day is None:
-                    print(f'Error!! week day not found for lesson in cell {cell.row}')
+                    print(f'Error!! week day not found '
+                          f'for lesson in cell {cell.row}')
                     continue
 
-                lesson_number_cell = self.ws.cell(cell.row, LESSON_NUMBER_COLUMN)
+                lesson_number_cell = self.ws.cell(
+                    cell.row, LESSON_NUMBER_COLUMN)
                 if not lesson_number_cell:
-                    print(f'Error!! lesson number cell not found for lesson in cell {cell.coordinate}')
+                    print(f'Error!! lesson number cell not found '
+                          f'for lesson in cell {cell.coordinate}')
                     continue
 
                 # check NUMERATOR or DENOMINATOR
-                freq = models.WeekFrequency.EACH_WEEK # from frequency
+                freq = models.WeekFrequency.EACH_WEEK  # from frequency
                 if (not cell_merged_range or
-                    cell_merged_range.min_row == cell_merged_range.max_row):
+                        cell_merged_range.min_row == cell_merged_range.max_row):
                     # if cell occupies only one row it meens lesson is not in each week
-                    freq = models.WeekFrequency.DENOMINATOR if lesson_number_cell.value is None \
+                    freq = models.WeekFrequency.DENOMINATOR \
+                        if lesson_number_cell.value is None \
                         else models.WeekFrequency.NUMERATOR
 
                 lesson_number = self.get_cell_value(lesson_number_cell)
                 if lesson_number is None:
-                    print(f'Error!! lesson number not found for lesson in cell {cell.coordinate}')
+                    print(f'Error!! lesson number not found '
+                          f'for lesson in cell {cell.coordinate}')
                     continue
 
                 try:
-                    lesson = Lesson(week_day, lesson_number, lesson_info, freq, self.semester)
+                    lesson = Lesson(week_day, lesson_number,
+                                    lesson_info, freq, self.semester)
                 except ValueError as e:
                     print(f'Warning!! {e}')
                     continue
@@ -335,7 +354,8 @@ class ScheduleFileParser:
         if merged_range:
             value = merged_range.title
             if value is None:
-                title_cell = self.ws.cell(merged_range.min_row, merged_range.min_col)
+                title_cell = self.ws.cell(
+                    merged_range.min_row, merged_range.min_col)
                 return title_cell.value
             return value
         return None

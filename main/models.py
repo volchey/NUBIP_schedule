@@ -3,7 +3,8 @@ from django.db import models
 
 from datetime import datetime, date, timezone, timedelta
 
-YEAR_CHOICES = [(r,r) for r in range(2015, date.today().year+1)]
+YEAR_CHOICES = [(r, r) for r in range(2015, date.today().year+1)]
+
 
 class DayOfWeek(models.IntegerChoices):
     MONDAY = 0, 'Понеділок'
@@ -14,15 +15,18 @@ class DayOfWeek(models.IntegerChoices):
     SATURDAY = 5, 'Субота'
     SUNDAY = 6, 'Неділя'
 
+
 class Type(models.IntegerChoices):
     UNKNOWN = 0, 'Невідомо'
     LECTURE = 1, 'Лекція'
     PRACTICE = 2, 'Практика'
 
+
 class WeekFrequency(models.IntegerChoices):
     EACH_WEEK = 1
     NUMERATOR = 2
     DENOMINATOR = 3
+
 
 class Semester(models.Model):
     id = models.AutoField(primary_key=True)
@@ -41,6 +45,7 @@ class Semester(models.Model):
     def __str__(self) -> str:
         return f'{self.startdate} - {self.enddate}'
 
+
 class Faculty(models.Model):
     id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=128, blank=False)
@@ -51,6 +56,7 @@ class Faculty(models.Model):
 
     def __str__(self) -> str:
         return self.name
+
 
 class ScheduleFile(models.Model):
     id = models.AutoField(primary_key=True)
@@ -71,17 +77,21 @@ class ScheduleFile(models.Model):
     def __str__(self) -> str:
         return self.file.name
 
+
 class Specialty(models.Model):
     code = models.CharField(max_length=64, primary_key=True)
     name = models.CharField(max_length=64, blank=True)
-    faculty = models.ForeignKey(Faculty, on_delete=models.CASCADE, null=True, blank=False)
+    faculty = models.ForeignKey(
+        Faculty, on_delete=models.CASCADE, null=True, blank=False)
 
     class Meta:
         db_table = 'Specialties'
 
+
 class Group(models.Model):
     name = models.CharField(max_length=64, primary_key=True)
-    year = models.IntegerField(choices=YEAR_CHOICES, default=datetime.now().year)
+    year = models.IntegerField(
+        choices=YEAR_CHOICES, default=datetime.now().year)
     number = models.PositiveSmallIntegerField()
     specialty = models.ForeignKey(Specialty, on_delete=models.CASCADE)
 
@@ -101,7 +111,8 @@ class Group(models.Model):
         return super().save(*args, **kwargs)
 
     def gen_name(self):
-        name = '{}-{}{:03d}'.format(self.specialty.code, self.year - 2000, self.number)
+        name = '{}-{}{:03d}'.format(self.specialty.code,
+                                    self.year - 2000, self.number)
         name += 'м' if self.type == self.Type.MASTER else 'б'
         if self.type == self.Type.REDUCED:
             name += 'ск'
@@ -110,6 +121,7 @@ class Group(models.Model):
 
     def __str__(self):
         return self.name
+
 
 class Subject(models.Model):
     id = models.AutoField(primary_key=True)
@@ -123,6 +135,7 @@ class Subject(models.Model):
     def __str__(self):
         return self.title
 
+
 class LessonNumber(models.Model):
     lesson_number = models.IntegerField(primary_key=True)
     starttime = models.TimeField()
@@ -134,11 +147,12 @@ class LessonNumber(models.Model):
     def __str__(self):
         return f'Пара {self.lesson_number}'
 
+
 class Lesson(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     dayofweek = models.IntegerField(choices=DayOfWeek.choices)
-    weekfrequency = models.IntegerField(choices=WeekFrequency.choices,
-                                        default=WeekFrequency.EACH_WEEK)
+    weekfrequency = models.IntegerField(
+        choices=WeekFrequency.choices, default=WeekFrequency.EACH_WEEK)
     lesson_number = models.ForeignKey(LessonNumber, on_delete=models.CASCADE)
     semester = models.ForeignKey(Semester, on_delete=models.CASCADE)
     subject = models.ForeignKey(Subject, on_delete=models.CASCADE)
@@ -152,7 +166,7 @@ class Lesson(models.Model):
     def startdate(self):
         days_to_add = self.dayofweek
         if (self.weekfrequency != WeekFrequency.EACH_WEEK and
-            self.semester.weektype != self.weekfrequency):
+                self.semester.weektype != self.weekfrequency):
             days_to_add += 7
 
         return self.semester.startdate + timedelta(days=days_to_add)

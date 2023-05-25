@@ -5,17 +5,21 @@ import time
 
 SLEEP_SECONDS = 30
 
+
 class Command(BaseCommand):
 
     def handle(self, *args, **kwargs):
         # process new files in infinite loop
         while True:
-            new_files = ScheduleFile.objects.filter(status=ScheduleFile.Status.NEW)
+            new_files = ScheduleFile.objects.filter(
+                status=ScheduleFile.Status.NEW)
             for new_file in new_files:
-                lessons = Lesson.objects.filter(groups__specialty__faculty=new_file.faculty,
-                                semester=new_file.semester)
+                lessons = Lesson.objects.filter(
+                    groups__specialty__faculty=new_file.faculty,
+                    semester=new_file.semester)
                 lessons.delete()
-                parser = ScheduleFileParser(new_file.file, new_file.faculty, new_file.semester)
+                parser = ScheduleFileParser(
+                    new_file.file, new_file.faculty, new_file.semester)
                 parser.serialize_to_db()
                 new_file.status = ScheduleFile.Status.PROCESSED
                 new_file.save()

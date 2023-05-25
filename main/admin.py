@@ -24,7 +24,7 @@ def make_lecture(modeladmin, request, queryset):
 
 
 class LessonAdmin(admin.ModelAdmin):
-    search_fields = ('title',)
+    search_fields = ('subject__title',)
     list_filter = ('type', 'dayofweek', 'lesson_number', 'groups',)
     actions = [make_lecture, make_practice, set_meeting_url]
 

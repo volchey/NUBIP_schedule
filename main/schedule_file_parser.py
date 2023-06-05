@@ -162,7 +162,7 @@ class Lesson:
 
         name, location = m.group(1), m.group(3)
         name = name.replace('\n', ' ')
-        subject = models.Subject.objects.get_or_create(title=name)
+        subject, created = models.Subject.objects.get_or_create(title=name)
 
         # TODO: add course url
         course = find_course(name)

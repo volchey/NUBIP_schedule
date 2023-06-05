@@ -41,3 +41,4 @@ admin.site.register(Semester)
 admin.site.register(ScheduleFile)
 admin.site.register(Subject, SubjectAdmin)
 admin.site.register(Specialty)
+admin.site.site_header = 'NUBIP Schedule administration'
